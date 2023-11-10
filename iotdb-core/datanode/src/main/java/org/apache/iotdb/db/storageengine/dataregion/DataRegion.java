@@ -572,7 +572,7 @@ public class DataRegion implements IDataRegionForQuery {
       Map<String, Long> endTimeMap = new HashMap<>();
       for (String deviceId : resource.getDevices()) {
         long endTime = resource.getEndTime(deviceId);
-        endTimeMap.put(deviceId.intern(), endTime);
+        endTimeMap.put(deviceId, endTime);
       }
       lastFlushTimeMap.setMultiDeviceFlushedTime(timePartitionId, endTimeMap);
       lastFlushTimeMap.setMultiDeviceGlobalFlushedTime(endTimeMap);

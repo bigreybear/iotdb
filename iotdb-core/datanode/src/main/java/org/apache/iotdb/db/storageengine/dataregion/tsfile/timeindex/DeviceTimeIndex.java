@@ -117,7 +117,7 @@ public class DeviceTimeIndex implements ITimeIndex {
     }
 
     for (int i = 0; i < deviceNum; i++) {
-      String path = ReadWriteIOUtils.readString(inputStream).intern();
+      String path = ReadWriteIOUtils.readString(inputStream);
       int index = ReadWriteIOUtils.readInt(inputStream);
       deviceToIndex.put(path, index);
     }
@@ -138,7 +138,7 @@ public class DeviceTimeIndex implements ITimeIndex {
     }
 
     for (int i = 0; i < deviceNum; i++) {
-      String path = SerializeUtils.deserializeString(buffer).intern();
+      String path = SerializeUtils.deserializeString(buffer);
       int index = buffer.getInt();
       deviceToIndex.put(path, index);
     }
@@ -171,7 +171,7 @@ public class DeviceTimeIndex implements ITimeIndex {
     ReadWriteIOUtils.skip(inputStream, 2L * deviceNum * ReadWriteIOUtils.LONG_LEN);
     Set<String> devices = new HashSet<>();
     for (int i = 0; i < deviceNum; i++) {
-      String path = ReadWriteIOUtils.readString(inputStream).intern();
+      String path = ReadWriteIOUtils.readString(inputStream);
       ReadWriteIOUtils.skip(inputStream, ReadWriteIOUtils.INT_LEN);
       devices.add(path);
     }
@@ -215,7 +215,7 @@ public class DeviceTimeIndex implements ITimeIndex {
       index = deviceToIndex.get(deviceId);
     } else {
       index = deviceToIndex.size();
-      deviceToIndex.put(deviceId.intern(), index);
+      deviceToIndex.put(deviceId, index);
       if (startTimes.length <= index) {
         startTimes = enLargeArray(startTimes, Long.MAX_VALUE);
         endTimes = enLargeArray(endTimes, Long.MIN_VALUE);
