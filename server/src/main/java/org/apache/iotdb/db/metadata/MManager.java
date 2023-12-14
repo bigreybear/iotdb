@@ -99,10 +99,14 @@ import org.apache.iotdb.tsfile.read.TimeValuePair;
 import org.apache.iotdb.tsfile.utils.Pair;
 import org.apache.iotdb.tsfile.utils.RamUsageEstimator;
 import org.apache.iotdb.tsfile.write.schema.IMeasurementSchema;
+import org.apache.iotdb.tsfile.write.schema.MeasurementSchema;
 import org.apache.iotdb.tsfile.write.schema.TimeseriesSchema;
 
+import com.ankurdave.part.ArtTree;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
+import com.github.rohansuri.art.AdaptiveRadixTree;
+import com.github.rohansuri.art.BinaryComparables;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -170,6 +174,13 @@ import static org.apache.iotdb.tsfile.common.constant.TsFileConstant.PATH_SEPARA
  */
 @SuppressWarnings("java:S1135") // ignore todos
 public class MManager {
+  public static enum TreeImpl {
+    MTree,
+    AnkurTree,
+    RohanTree;
+  };
+
+  public static final TreeImpl treeFlag = TreeImpl.RohanTree;
 
   private static final Logger logger = LoggerFactory.getLogger(MManager.class);
 
@@ -203,6 +214,11 @@ public class MManager {
   private MLogWriter logWriter;
 
   private MTree mtree;
+  // ankurTree
+  private ArtTree ankurTree;
+  // rohanTree
+  private AdaptiveRadixTree<String, IMeasurementMNode> rohanTree;
+
   // device -> DeviceMNode
   private LoadingCache<PartialPath, IMNode> mNodeCache;
   private TagManager tagManager = new TagManager();
@@ -312,6 +328,9 @@ public class MManager {
       tagManager.init(config.getSchemaDir(), MetadataConstant.TAG_LOG);
       mtree = new MTree();
       mtree.init();
+
+      ankurTree = new ArtTree();
+      rohanTree = new AdaptiveRadixTree<>(BinaryComparables.forString());
 
       int lineNumber = initFromLog(logFile);
 
@@ -579,14 +598,40 @@ public class MManager {
 
         TSDataType type = plan.getDataType();
         // create time series in MTree
-        leafMNode =
-            mtree.createTimeseries(
-                path,
-                type,
-                plan.getEncoding(),
-                plan.getCompressor(),
-                plan.getProps(),
-                plan.getAlias());
+
+        if (treeFlag == TreeImpl.MTree) {
+          // original implementation
+          leafMNode =
+              mtree.createTimeseries(
+                  path,
+                  type,
+                  plan.getEncoding(),
+                  plan.getCompressor(),
+                  plan.getProps(),
+                  plan.getAlias());
+        } else {
+          leafMNode =
+              MeasurementMNode.getMeasurementMNode(
+                  null,
+                  path.getMeasurement(),
+                  new MeasurementSchema(
+                      path.getMeasurement(), type, plan.getEncoding(), plan.getCompressor()),
+                  null);
+
+          if (treeFlag == TreeImpl.AnkurTree) {
+            if (ankurTree.search(path.getFullPath().getBytes()) != null) {
+              throw new PathAlreadyExistException(path.getFullPath());
+            }
+            ankurTree.insert(path.getFullPath().getBytes(), leafMNode);
+          } else if (treeFlag == TreeImpl.RohanTree) {
+            if (rohanTree.get(path.getFullPath()) != null) {
+              throw new PathAlreadyExistException(path.getFullPath());
+            }
+            rohanTree.put(path.getFullPath(), leafMNode);
+          } else {
+            throw new MetadataException("Tree type wrong.");
+          }
+        }
 
         // the cached mNode may be replaced by new entityMNode in mtree
         mNodeCache.invalidate(path.getDevicePath());
@@ -612,7 +657,8 @@ public class MManager {
 
       // update statistics and schemaDataTypeNumMap
       totalNormalSeriesNumber.addAndGet(1);
-      if (totalNormalSeriesNumber.get() * ESTIMATED_SERIES_SIZE >= MTREE_SIZE_THRESHOLD) {
+      if (treeFlag == TreeImpl.MTree
+          && totalNormalSeriesNumber.get() * ESTIMATED_SERIES_SIZE >= MTREE_SIZE_THRESHOLD) {
         logger.warn("Current series number {} is too large...", totalNormalSeriesNumber);
         allowToCreateNewSeries = false;
       }
@@ -715,15 +761,65 @@ public class MManager {
           SchemaUtils.checkDataTypeWithEncoding(dataTypes.get(i), encodings.get(i));
         }
 
-        ensureStorageGroup(prefixPath);
+        if (treeFlag == TreeImpl.MTree) {
+          ensureStorageGroup(prefixPath);
 
-        // create time series in MTree
-        mtree.createAlignedTimeseries(
-            prefixPath,
-            measurements,
-            plan.getDataTypes(),
-            plan.getEncodings(),
-            plan.getCompressors());
+          // create time series in MTree
+          mtree.createAlignedTimeseries(
+              prefixPath,
+              measurements,
+              plan.getDataTypes(),
+              plan.getEncodings(),
+              plan.getCompressors());
+        } else {
+          IMeasurementMNode leafMNode;
+          PartialPath fullPath;
+          if (treeFlag == TreeImpl.AnkurTree) {
+            for (int i = 0; i < seriesCount; i++) {
+              fullPath = prefixPath.concatNode(measurements.get(i));
+
+              if (ankurTree.search(fullPath.getFullPath().getBytes()) != null) {
+                throw new PathAlreadyExistException(fullPath.getFullPath());
+              }
+
+              leafMNode =
+                  MeasurementMNode.getMeasurementMNode(
+                      null,
+                      measurements.get(i),
+                      new MeasurementSchema(
+                          measurements.get(i),
+                          plan.getDataTypes().get(i),
+                          plan.getEncodings().get(i),
+                          plan.getCompressors().get(i)),
+                      null);
+
+              ankurTree.insert(fullPath.getFullPath().getBytes(), leafMNode);
+            }
+          }
+
+          if (treeFlag == TreeImpl.RohanTree) {
+            for (int i = 0; i < seriesCount; i++) {
+              fullPath = prefixPath.concatNode(measurements.get(i));
+
+              if (rohanTree.get(fullPath.getFullPath()) != null) {
+                throw new PathAlreadyExistException(fullPath.getFullPath());
+              }
+
+              leafMNode =
+                  MeasurementMNode.getMeasurementMNode(
+                      null,
+                      measurements.get(i),
+                      new MeasurementSchema(
+                          measurements.get(i),
+                          plan.getDataTypes().get(i),
+                          plan.getEncodings().get(i),
+                          plan.getCompressors().get(i)),
+                      null);
+
+              rohanTree.put(fullPath.getFullPath(), leafMNode);
+            }
+          }
+        }
 
         // the cached mNode may be replaced by new entityMNode in mtree
         mNodeCache.invalidate(prefixPath);
@@ -737,7 +833,8 @@ public class MManager {
 
       // update statistics and schemaDataTypeNumMap
       totalNormalSeriesNumber.addAndGet(seriesCount);
-      if (totalNormalSeriesNumber.get() * ESTIMATED_SERIES_SIZE >= MTREE_SIZE_THRESHOLD) {
+      if (treeFlag == TreeImpl.MTree
+          && totalNormalSeriesNumber.get() * ESTIMATED_SERIES_SIZE >= MTREE_SIZE_THRESHOLD) {
         logger.warn("Current series number {} is too large...", totalNormalSeriesNumber);
         allowToCreateNewSeries = false;
       }
@@ -760,9 +857,9 @@ public class MManager {
     try {
       mtree.getBelongedStorageGroup(path);
     } catch (StorageGroupNotSetException e) {
-      if (!config.isAutoCreateSchemaEnabled()) {
-        throw e;
-      }
+      // if (!config.isAutoCreateSchemaEnabled()) {
+      //   throw e;
+      // }
       PartialPath storageGroupPath =
           MetaUtils.getStorageGroupPathByLevel(path, config.getDefaultStorageGroupLevel());
       try {
@@ -1069,7 +1166,8 @@ public class MManager {
    */
   public int getAllTimeseriesCount(PartialPath pathPattern, boolean isPrefixMatch)
       throws MetadataException {
-    return mtree.getAllTimeseriesCount(pathPattern, isPrefixMatch, true);
+    return (int) getTotalNormalSeriesNumber();
+    // return mtree.getAllTimeseriesCount(pathPattern, isPrefixMatch, true);
   }
 
   /**
@@ -1083,16 +1181,24 @@ public class MManager {
   /**
    * To calculate the count of devices for given path pattern. If using prefix match, the path
    * pattern is used to match prefix path. All timeseries start with the matched prefix path will be
-   * counted.
+   * counted.<\br> fixme: hacked to present ram usage
    */
-  public int getDevicesNum(PartialPath pathPattern, boolean isPrefixMatch)
+  public long getDevicesNum(PartialPath pathPattern, boolean isPrefixMatch)
       throws MetadataException {
+    switch (treeFlag) {
+      case MTree:
+        return RamUsageEstimator.sizeOf(mtree);
+      case AnkurTree:
+        return RamUsageEstimator.sizeOf(ankurTree);
+      case RohanTree:
+        return RamUsageEstimator.sizeOf(rohanTree);
+    }
     return mtree.getDevicesNum(pathPattern, isPrefixMatch);
   }
 
   /** To calculate the count of devices for given path pattern. */
   public int getDevicesNum(PartialPath pathPattern) throws MetadataException {
-    return getDevicesNum(pathPattern, false);
+    return (int) getDevicesNum(pathPattern, false);
   }
 
   /**
@@ -1503,6 +1609,27 @@ public class MManager {
     return res;
   }
 
+  private List<Pair<PartialPath, String[]>> getAllAnsInART(ShowTimeSeriesPlan plan) {
+    IMeasurementMNode node =
+        treeFlag == TreeImpl.RohanTree
+            ? rohanTree.get(plan.getPath().getFullPath())
+            : (IMeasurementMNode) ankurTree.search(plan.getPath().getFullPath().getBytes());
+    IMeasurementSchema schema = node.getSchema();
+    Pair<String, String> deadbandInfo = MetaUtils.parseDeadbandInfo(schema.getProps());
+    String[] tsRow = new String[9];
+    tsRow[0] = node.getAlias();
+    tsRow[1] = "FROM ART";
+    tsRow[2] = schema.getType().toString();
+    tsRow[3] = schema.getEncodingType().toString();
+    tsRow[4] = schema.getCompressor().toString();
+    tsRow[5] = String.valueOf(node.getOffset());
+    tsRow[6] = null;
+    tsRow[7] = deadbandInfo.left;
+    tsRow[8] = deadbandInfo.right;
+
+    return new ArrayList<>(Collections.singletonList(new Pair<>(plan.getPath(), tsRow)));
+  }
+
   /**
    * Get the result of ShowTimeseriesPlan
    *
@@ -1514,7 +1641,7 @@ public class MManager {
     if (plan.isOrderByHeat()) {
       ans = mtree.getAllMeasurementSchemaByHeatOrder(plan, context);
     } else {
-      ans = mtree.getAllMeasurementSchema(plan);
+      ans = treeFlag == TreeImpl.MTree ? mtree.getAllMeasurementSchema(plan) : getAllAnsInART(plan);
     }
     List<ShowTimeSeriesResult> res = new LinkedList<>();
     for (Pair<PartialPath, String[]> ansString : ans) {

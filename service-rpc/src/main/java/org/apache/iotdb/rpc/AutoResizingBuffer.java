@@ -52,7 +52,7 @@ class AutoResizingBuffer {
     final double loadFactor = 0.6;
     if (currentCapacity < size) {
       // Increase by a factor of 1.5x
-      int growCapacity = currentCapacity + (currentCapacity >> 1);
+      int growCapacity = (int) 2.5 * currentCapacity;
       int newCapacity = Math.max(growCapacity, size);
       this.array = Arrays.copyOf(array, newCapacity);
       bufTooLargeCounter = RpcUtils.MAX_BUFFER_OVERSIZE_TIME;

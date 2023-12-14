@@ -198,7 +198,9 @@ public class IoTDB implements IoTDBMBean {
       MetricService.getInstance().reloadInternalReporter(new IoTDBInternalReporter());
     }
     registerManager.register(MetricService.getInstance());
-    logger.info("Congratulation, IoTDB is set up successfully. Now, enjoy yourself!");
+    logger.info(
+        "Congratulation, IoTDB({}) is set up successfully. Now, enjoy yourself!",
+        MManager.treeFlag.toString());
   }
 
   public static void initInfluxDBMManager() {

@@ -886,8 +886,8 @@ public class PlanExecutor implements IPlanExecutor {
   }
 
   private QueryDataSet processCountDevices(CountPlan countPlan) throws MetadataException {
-    int num = getDevicesNum(countPlan.getPath(), countPlan.isPrefixMatch());
-    return createSingleDataSet(COLUMN_DEVICES, TSDataType.INT32, num);
+    long num = getDevicesNum(countPlan.getPath(), countPlan.isPrefixMatch());
+    return createSingleDataSet(COLUMN_DEVICES, TSDataType.INT64, num);
   }
 
   private QueryDataSet processCountStorageGroup(CountPlan countPlan) throws MetadataException {
@@ -929,7 +929,7 @@ public class PlanExecutor implements IPlanExecutor {
     return singleDataSet;
   }
 
-  protected int getDevicesNum(PartialPath path, boolean isPrefixMatch) throws MetadataException {
+  protected long getDevicesNum(PartialPath path, boolean isPrefixMatch) throws MetadataException {
     return IoTDB.metaManager.getDevicesNum(path, isPrefixMatch);
   }
 

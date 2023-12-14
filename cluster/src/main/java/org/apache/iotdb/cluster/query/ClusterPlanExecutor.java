@@ -127,7 +127,7 @@ public class ClusterPlanExecutor extends PlanExecutor {
   }
 
   @Override
-  protected int getDevicesNum(PartialPath path, boolean isPrefixMatch) throws MetadataException {
+  protected long getDevicesNum(PartialPath path, boolean isPrefixMatch) throws MetadataException {
     // adapt to prefix match of IoTDB v0.12
     return getDevicesNum(path)
         + (isPrefixMatch
