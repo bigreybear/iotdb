@@ -34,6 +34,7 @@ abstract class ChildPtr {
   }
 
   void change_no_decrement(Node n) {
+    // NOTE
     n.refcount++;
     set(n);
   }

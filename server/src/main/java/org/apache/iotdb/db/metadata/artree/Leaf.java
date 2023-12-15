@@ -84,7 +84,7 @@ class Leaf extends Node {
     if (matches(key)) {
       if (clone) {
         // Updating an existing value, but need to create a new leaf to
-        // reflect the change
+        // reflect the change  NOTE de facto handle an update
         ref.change(new Leaf(key, value));
       } else {
         // Updating an existing value, and safe to make the change in
@@ -98,7 +98,7 @@ class Leaf extends Node {
       // Create a new leaf
       Leaf l2 = new Leaf(key, value);
 
-      // Determine longest prefix
+      // Determine longest prefix  NOTE
       int longest_prefix = longest_common_prefix(l2, depth);
       if (depth + longest_prefix >= this.key.length || depth + longest_prefix >= key.length) {
         throw new UnsupportedOperationException("keys cannot be prefixes of other keys");

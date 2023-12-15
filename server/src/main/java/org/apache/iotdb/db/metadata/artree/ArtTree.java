@@ -21,6 +21,7 @@ package org.apache.iotdb.db.metadata.artree;
 import org.apache.iotdb.tsfile.utils.Pair;
 
 import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 
 public class ArtTree extends ChildPtr implements Serializable {
@@ -29,6 +30,15 @@ public class ArtTree extends ChildPtr implements Serializable {
   public static void main(String[] args) {
     System.out.println("hello");
     ArtTree tree = new ArtTree();
+    // NOTE
+    tree.insert("rootxxxxxx.sg1.d2.v2".getBytes(StandardCharsets.UTF_8), 2);
+    tree.insert("rootxxxxxx.sg2.d3.v3".getBytes(StandardCharsets.UTF_8), 2);
+    tree.insert("rootxxxxxx.sg2.d4.v1".getBytes(StandardCharsets.UTF_8), 2);
+    tree.insert("rootxxxxxx.sg2.d3.v1".getBytes(StandardCharsets.UTF_8), 2);
+    tree.insert("rootxxxxxx.sg5.d1.v1".getBytes(StandardCharsets.UTF_8), 2);
+    tree.insert("rootxxxxxx.sg5.d2.v1".getBytes(StandardCharsets.UTF_8), 2);
+    tree.insert("rootxxxxxx.sg6.d1.v1".getBytes(StandardCharsets.UTF_8), 2);
+    System.out.println(tree);
   }
 
   public ArtTree(final ArtTree other) {

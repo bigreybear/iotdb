@@ -18,6 +18,9 @@
  */
 package org.apache.iotdb.db.metadata.artree;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+
 abstract class ArtNode extends Node {
   public ArtNode() {
     super();
@@ -70,6 +73,15 @@ abstract class ArtNode extends Node {
   public abstract int nextChildAtOrAfter(int i);
 
   public abstract Node childAt(int i);
+
+  // NOTE my monitor for byte array
+  public static String translator(byte[] src, int s, int l) {
+    byte[] res = new byte[l];
+    for (int i = l ; i > 0; i--) {
+      res[l-i] = src[s+l-i];
+    }
+    return new String(res, StandardCharsets.UTF_8);
+  }
 
   @Override
   public boolean insert(
