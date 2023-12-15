@@ -56,7 +56,7 @@ public class MTreeSnapshotLoader {
 
   private static SimpleDateFormat tsFormat = new SimpleDateFormat("yyMMddHHmmss");
 
-  private static void close() throws IOException{
+  private static void close() throws IOException {
     CensusTraveler.queue.clear();
     CensusTraveler.stack.clear();
     for (BufferedWriter writer : pencilCase.values()) {
@@ -69,23 +69,21 @@ public class MTreeSnapshotLoader {
       return pencilCase.get(name);
     }
 
-    BufferedWriter writer = new BufferedWriter(new FileWriter(
-        resultDir + File.separator + name + "_" + tsFormat.format(new Date()) + ".txt")
-    );
+    BufferedWriter writer =
+        new BufferedWriter(
+            new FileWriter(
+                resultDir + File.separator + name + "_" + tsFormat.format(new Date()) + ".txt"));
     pencilCase.put(name, writer);
     return writer;
   }
 
   private static class DirectoryPathHandler {
-    /**
-     * With dependency on:
-     * org.apache.iotdb.consensus.ratis.SnapshotStorage#TMP_PREFIX
-     */
+    /** With dependency on: org.apache.iotdb.consensus.ratis.SnapshotStorage#TMP_PREFIX */
     private static final String TMP_PREFIX = ".tmp.";
 
     /**
-     * With dependency on:
-     * org.apache.iotdb.consensus.ratis.SnapshotStorage#getSnapshotDir(String)
+     * With dependency on: org.apache.iotdb.consensus.ratis.SnapshotStorage#getSnapshotDir(String)
+     *
      * @return
      */
     private static Path[] getSortedSnapshotDirPaths(File sgStateMachineDir) {
@@ -136,23 +134,26 @@ public class MTreeSnapshotLoader {
     List<IMemMNode> sgForest = new ArrayList<>();
 
     for (File regionDir : regionDirs) {
-      latestShot = DirectoryPathHandler.findLatestSnapshotDir(regionDir.listFiles((idir, name) -> name.equals("sm"))[0]);
+      latestShot =
+          DirectoryPathHandler.findLatestSnapshotDir(
+              regionDir.listFiles((idir, name) -> name.equals("sm"))[0]);
       memSchemaRegionStatistics = new MemSchemaRegionStatistics(regionId++, engineStatistics);
-      sgNode = MemMTreeSnapshotUtil.loadSnapshot(
-          latestShot,
-          measurementMNode -> {},
-          deviceMNode -> {},
-          memSchemaRegionStatistics
-      );
+      sgNode =
+          MemMTreeSnapshotUtil.loadSnapshot(
+              latestShot, measurementMNode -> {}, deviceMNode -> {}, memSchemaRegionStatistics);
       sgForest.add(sgNode);
     }
     return sgForest;
   }
 
   public static IMemMNode mergeRegions(List<IMemMNode> regions) {
-    IMemMNode root = MNodeFactoryLoader.getInstance().getMemMNodeIMNodeFactory().createAboveDatabaseMNode(null, "root");
+    IMemMNode root =
+        MNodeFactoryLoader.getInstance()
+            .getMemMNodeIMNodeFactory()
+            .createAboveDatabaseMNode(null, "root");
     Map<String, IMemMNode> toMerge = new HashMap<>();
-    regions.forEach(e -> toMerge.compute(e.getName(), (k, v) -> v == null ? e : recursiveMergeRegions(e, v)));
+    regions.forEach(
+        e -> toMerge.compute(e.getName(), (k, v) -> v == null ? e : recursiveMergeRegions(e, v)));
     toMerge.values().forEach(root::addChild);
     return root;
   }
@@ -182,15 +183,18 @@ public class MTreeSnapshotLoader {
     IMemMNode devPar;
     for (IMemMNode node : regions) {
       devPar = node.getChild("baoshan");
-      devs.addAll(devPar.getChildren().values().stream().map(IMNode::getName).collect(Collectors.toList()));
-      System.out.println(String.format("cnt [%s]: %d, acc: %d", node.getName(), devPar.getChildren().size(), devs.size()));
+      devs.addAll(
+          devPar.getChildren().values().stream().map(IMNode::getName).collect(Collectors.toList()));
+      System.out.println(
+          String.format(
+              "cnt [%s]: %d, acc: %d", node.getName(), devPar.getChildren().size(), devs.size()));
     }
-
   }
 
-
   public static void main(String[] args) throws IOException {
-    IoTDBDescriptor.getInstance().getConfig().setAllocateMemoryForSchemaRegion(Runtime.getRuntime().maxMemory());
+    IoTDBDescriptor.getInstance()
+        .getConfig()
+        .setAllocateMemoryForSchemaRegion(Runtime.getRuntime().maxMemory());
 
     List<IMemMNode> sgForest = recoverSnapshots("mtree_data\\schema_region");
 
@@ -204,8 +208,6 @@ public class MTreeSnapshotLoader {
 
     ct.broadFirst();
   }
-
-
 
   private static class CensusTraveler {
     private IMemMNode root;
@@ -223,7 +225,6 @@ public class MTreeSnapshotLoader {
     private int devCnt = 0;
     private int seriesCnt = 0;
 
-    
     CensusTraveler(IMemMNode root) {
       this.root = root;
     }
@@ -231,7 +232,7 @@ public class MTreeSnapshotLoader {
     private void censusByLevel(int level) {}
 
     private void updateFanout(int level, int fanout, IMemMNode node) {
-      lvlCount[level] ++;
+      lvlCount[level]++;
       if (maxFanout[level] < fanout) {
         maxFanout[level] = fanout;
         maxFanoutNode[level] = node;
@@ -241,14 +242,14 @@ public class MTreeSnapshotLoader {
     private void fanoutResult() {
       for (int i = 0; i < lvlCount.length; i++) {
         if (lvlCount[i] > 0) {
-          avgFanout[i] = (float) lvlCount[i+1] / lvlCount[i];
+          avgFanout[i] = (float) lvlCount[i + 1] / lvlCount[i];
         }
       }
     }
 
     private void broadFirst() throws IOException {
       int remainCnt = 0; // remaining in this level
-      int levelCnt = 1;  // counting on next level
+      int levelCnt = 1; // counting on next level
       int level = 0;
       queue.add(root);
       remainCnt++;
@@ -278,6 +279,7 @@ public class MTreeSnapshotLoader {
         }
 
         if (node.isMeasurement()) {
+          // NOTE write series path
           // seriesListWriter.write(node.getFullPath());
           // seriesListWriter.newLine();
           seriesCnt++;
@@ -287,12 +289,18 @@ public class MTreeSnapshotLoader {
       maxLevel = level;
       fanoutResult();
 
-      seriesListWriter.write(String.format("Devices: %d, Series: %d, Max Level: %d", devCnt, seriesCnt, maxLevel));
+      seriesListWriter.write(
+          String.format("Devices: %d, Series: %d, Max Level: %d", devCnt, seriesCnt, maxLevel));
       seriesListWriter.newLine();
       seriesListWriter.write(String.format("Max fanout: %s", Arrays.toString(maxFanout)));
       seriesListWriter.newLine();
-      seriesListWriter.write(String.format("Max fanout deviceId: %s", Arrays.stream(maxFanoutNode)
-          .filter(Objects::nonNull).map(IMemMNode::getFullPath).collect(Collectors.joining(", "))));
+      seriesListWriter.write(
+          String.format(
+              "Max fanout deviceId: %s",
+              Arrays.stream(maxFanoutNode)
+                  .filter(Objects::nonNull)
+                  .map(IMemMNode::getFullPath)
+                  .collect(Collectors.joining(", "))));
       seriesListWriter.newLine();
       seriesListWriter.write(String.format("Level count: %s", Arrays.toString(lvlCount)));
       seriesListWriter.newLine();
@@ -301,7 +309,5 @@ public class MTreeSnapshotLoader {
     }
 
     private void deepFirst() {}
-
   }
-
 }
