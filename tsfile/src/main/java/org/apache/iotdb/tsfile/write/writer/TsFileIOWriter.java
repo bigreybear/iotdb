@@ -338,6 +338,7 @@ public class TsFileIOWriter implements AutoCloseable {
             TSFileDescriptor.getInstance().getConfig().getBloomFilterErrorRate(), pathCount);
 
     int indexCount = 0;
+    // building timeseries metadata and chunk metadata list
     while (tsmIterator.hasNext()) {
       // read in all chunk metadata of one series
       // construct the timeseries metadata for this series
@@ -352,7 +353,7 @@ public class TsFileIOWriter implements AutoCloseable {
       // construct the index tree node for the series
       currentDevice = currentPath.getDevice();
       if (!currentDevice.equals(prevDevice)) {
-        if (prevDevice != null) {
+        if (prevDevice != null) { // when dev changed and the previous existed, add it to map
           addCurrentIndexNodeToQueue(currentIndexNode, measurementMetadataIndexQueue, out);
           deviceMetadataIndexMap.put(
               prevDevice,
@@ -365,6 +366,8 @@ public class TsFileIOWriter implements AutoCloseable {
       }
 
       if (seriesIdxForCurrDevice % config.getMaxDegreeOfIndexNode() == 0) {
+        // for every 256 sensors, an entry added to device IndexNode
+        // entry carries TSM offset of the sensor
         if (currentIndexNode.isFull()) {
           addCurrentIndexNodeToQueue(currentIndexNode, measurementMetadataIndexQueue, out);
           currentIndexNode = new MetadataIndexNode(MetadataIndexNodeType.LEAF_MEASUREMENT);
@@ -380,9 +383,12 @@ public class TsFileIOWriter implements AutoCloseable {
       prevDevice = currentDevice;
       seriesIdxForCurrDevice++;
       // serialize the timeseries metadata to file
+      // TS Metadata, including datatype, sensor id, chunk metadata list size, statistics
+      // chunk metadata, which points to actual data, is already byte buffer here, so don't worry
+      // about how
       timeseriesMetadata.serializeTo(out.wrapAsStream());
     }
-
+    // JUST to complete last run of the loop
     addCurrentIndexNodeToQueue(currentIndexNode, measurementMetadataIndexQueue, out);
     if (prevDevice != null) {
       deviceMetadataIndexMap.put(
@@ -391,6 +397,9 @@ public class TsFileIOWriter implements AutoCloseable {
               measurementMetadataIndexQueue, out, MetadataIndexNodeType.INTERNAL_MEASUREMENT));
     }
 
+    // mark metadata tree
+    // serialize measurement entry(:measurement -> TSMeta_offset) into buffer <br>
+    // and construct IndexNode for device (:device -> first_
     MetadataIndexNode metadataIndex = checkAndBuildLevelIndex(deviceMetadataIndexMap, out);
 
     TsFileMetadata tsFileMetadata = new TsFileMetadata();

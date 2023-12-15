@@ -130,6 +130,9 @@ public class MetadataIndexConstructor {
     MetadataIndexNode metadataIndexNode;
     MetadataIndexNode currentIndexNode = new MetadataIndexNode(type);
     while (queueSize != 1) {
+      // each for loop scale queueSize to 1/256 by extract only one entry from a node
+      //  nodes collecting entries may be added to queue if full
+      //  extracted node will not get back to queue
       for (int i = 0; i < queueSize; i++) {
         metadataIndexNode = metadataIndexNodeQueue.poll();
         // when constructing from internal node, each node is related to an entry
