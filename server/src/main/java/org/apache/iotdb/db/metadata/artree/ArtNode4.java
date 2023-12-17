@@ -18,12 +18,43 @@
  */
 package org.apache.iotdb.db.metadata.artree;
 
+import org.apache.iotdb.tsfile.utils.ReadWriteIOUtils;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.List;
+
 class ArtNode4 extends ArtNode {
   public static int count;
+  public static byte type = 1;
 
   public ArtNode4() {
     super();
     count++;
+  }
+
+  @Override
+  public byte getType() {
+    return 1;
+  }
+
+  @Override
+  public byte getKeyAt(int i) {
+    return keys[i];
+  }
+
+  public static ArtNode4 padding(List<Byte> k, List<Node> c, String p) {
+    ArtNode4 res = new ArtNode4();
+
+    if (p != null) {
+      res.partial_len = p.getBytes().length;
+      System.arraycopy(p.getBytes(), 0, res.partial, 0, res.partial_len);
+    }
+
+    for (int i = 0; i < k.size(); i++) {
+      res.add_child(null, k.get(i), c.get(i));
+    }
+    return res;
   }
 
   public ArtNode4(final ArtNode4 other) {
@@ -162,6 +193,11 @@ class ArtNode4 extends ArtNode {
   }
 
   @Override
+  public boolean valid(int i) {
+    return  i < num_children;
+  }
+
+  @Override
   public int decrement_refcount() {
     if (--this.refcount <= 0) {
       int freed = 0;
@@ -181,6 +217,6 @@ class ArtNode4 extends ArtNode {
     return 0;
   }
 
-  byte[] keys = new byte[4];
-  Node[] children = new Node[4];
+  public byte[] keys = new byte[4];
+  public Node[] children = new Node[4];
 }

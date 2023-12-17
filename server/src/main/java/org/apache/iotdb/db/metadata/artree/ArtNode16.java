@@ -18,8 +18,39 @@
  */
 package org.apache.iotdb.db.metadata.artree;
 
+import java.util.List;
+
 class ArtNode16 extends ArtNode {
   public static int count;
+
+  @Override
+  public byte getType() {
+    return 2;
+  }
+
+  @Override
+  public byte getKeyAt(int i) {
+    return keys[i];
+  }
+
+  @Override
+  public boolean valid(int i) {
+    return  i < num_children;
+  }
+
+  public static ArtNode16 padding(List<Byte> k, List<Node> c, String p) {
+    ArtNode16 res = new ArtNode16();
+
+    if (p != null) {
+      res.partial_len = p.getBytes().length;
+      System.arraycopy(p.getBytes(), 0, res.partial, 0, res.partial_len);
+    }
+
+    for (int i = 0; i < k.size(); i++) {
+      res.add_child(null, k.get(i), c.get(i));
+    }
+    return res;
+  }
 
   public ArtNode16() {
     super();
@@ -178,6 +209,6 @@ class ArtNode16 extends ArtNode {
     return 0;
   }
 
-  byte[] keys = new byte[16];
-  Node[] children = new Node[16];
+  public byte[] keys = new byte[16];
+  public Node[] children = new Node[16];
 }

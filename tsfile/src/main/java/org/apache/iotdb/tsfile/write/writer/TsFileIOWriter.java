@@ -62,6 +62,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.TreeMap;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.Handler;
 
 import static org.apache.iotdb.tsfile.file.metadata.MetadataIndexConstructor.addCurrentIndexNodeToQueue;
 import static org.apache.iotdb.tsfile.file.metadata.MetadataIndexConstructor.checkAndBuildLevelIndex;
@@ -71,6 +73,8 @@ import static org.apache.iotdb.tsfile.file.metadata.MetadataIndexConstructor.gen
  * TsFileIOWriter is used to construct metadata and write data stored in memory to output stream.
  */
 public class TsFileIOWriter implements AutoCloseable {
+
+  public long metadataCost = 0L;
 
   protected static final byte[] MAGIC_STRING_BYTES;
   public static final byte VERSION_NUMBER_BYTE;
@@ -179,9 +183,9 @@ public class TsFileIOWriter implements AutoCloseable {
 
   public int startChunkGroup(String deviceId) throws IOException {
     this.currentChunkGroupDeviceId = deviceId;
-    if (logger.isDebugEnabled()) {
-      logger.debug("start chunk group:{}, file position {}", deviceId, out.getPosition());
-    }
+//    if (logger.isDebugEnabled()) {
+//      logger.debug("start chunk group:{}, file position {}", deviceId, out.getPosition());
+//    }
     chunkMetadataList = new ArrayList<>();
     ChunkGroupHeader chunkGroupHeader = new ChunkGroupHeader(currentChunkGroupDeviceId);
     return chunkGroupHeader.serializeTo(out.wrapAsStream());
@@ -290,9 +294,9 @@ public class TsFileIOWriter implements AutoCloseable {
     readChunkMetadataAndConstructIndexTree();
 
     long footerIndex = out.getPosition();
-    if (logger.isDebugEnabled()) {
-      logger.debug("start to flush the footer,file pos:{}", footerIndex);
-    }
+//    if (logger.isDebugEnabled()) {
+//      logger.debug("start to flush the footer,file pos:{}", footerIndex);
+//    }
 
     // write magic string
     out.write(MAGIC_STRING_BYTES);
@@ -355,11 +359,13 @@ public class TsFileIOWriter implements AutoCloseable {
       if (!currentDevice.equals(prevDevice)) {
         if (prevDevice != null) { // when dev changed and the previous existed, add it to map
           addCurrentIndexNodeToQueue(currentIndexNode, measurementMetadataIndexQueue, out);
+          long a = out.getPosition();
           deviceMetadataIndexMap.put(
               prevDevice,
               generateRootNode(
                   measurementMetadataIndexQueue, out, MetadataIndexNodeType.INTERNAL_MEASUREMENT));
           currentIndexNode = new MetadataIndexNode(MetadataIndexNodeType.LEAF_MEASUREMENT);
+          this.metadataCost += (out.getPosition() - a);
         }
         measurementMetadataIndexQueue = new ArrayDeque<>();
         seriesIdxForCurrDevice = 0;
@@ -388,6 +394,9 @@ public class TsFileIOWriter implements AutoCloseable {
       // about how
       timeseriesMetadata.serializeTo(out.wrapAsStream());
     }
+
+    long b = out.getPosition();
+
     // JUST to complete last run of the loop
     addCurrentIndexNodeToQueue(currentIndexNode, measurementMetadataIndexQueue, out);
     if (prevDevice != null) {
@@ -396,6 +405,10 @@ public class TsFileIOWriter implements AutoCloseable {
           generateRootNode(
               measurementMetadataIndexQueue, out, MetadataIndexNodeType.INTERNAL_MEASUREMENT));
     }
+
+    this.metadataCost += (out.getPosition() - b);
+
+    long metadataStartPos = out.getPosition();
 
     // mark metadata tree
     // serialize measurement entry(:measurement -> TSMeta_offset) into buffer <br>
@@ -407,6 +420,11 @@ public class TsFileIOWriter implements AutoCloseable {
     tsFileMetadata.setMetaOffset(metaOffset);
 
     int size = tsFileMetadata.serializeTo(out.wrapAsStream());
+
+    long metadataEndPos = out.getPosition();
+
+    this.metadataCost += (metadataEndPos - metadataStartPos);
+
     size += tsFileMetadata.serializeBloomFilter(out.wrapAsStream(), filter);
 
     // write TsFileMetaData size

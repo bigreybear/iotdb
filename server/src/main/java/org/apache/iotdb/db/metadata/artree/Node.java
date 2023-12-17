@@ -18,10 +18,57 @@
  */
 package org.apache.iotdb.db.metadata.artree;
 
-import java.io.Serializable;
+import org.apache.iotdb.tsfile.utils.ReadWriteIOUtils;
 
-abstract class Node implements Serializable {
-  static final int MAX_PREFIX_LEN = 8;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.Serializable;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+
+public abstract class Node implements Serializable {
+  static final int MAX_PREFIX_LEN = 128;
+  public long offset = -1L;
+  public int depth = 0;
+
+  public abstract void serialize(ByteArrayOutputStream out) throws IOException;
+
+  public static Node deserialize(ByteBuffer buffer) {
+    byte t = ReadWriteIOUtils.readByte(buffer);
+    switch (t){
+      case 0:
+        return Leaf.deserialize(buffer);
+      case 1:
+      case 2:
+      case 3:
+        return ArtNode.deserialize(buffer, t);
+      case 4:
+        return ArtNode256.deserialize(buffer);
+      default:
+        throw new UnsupportedOperationException();
+    }
+  }
+
+  public int getPartialLength() {
+   throw new UnsupportedOperationException();
+  }
+
+  public byte[] getPartialKey() {
+    throw new UnsupportedOperationException();
+  }
+
+  // NOTE my monitor for byte array
+  public static String translator(byte[] src, int s, int l) {
+    if (l < 0) {
+      throw new UnsupportedOperationException();
+    }
+
+    byte[] res = new byte[l];
+    for (int i = l; i > 0; i--) {
+      res[l - i] = src[s + l - i];
+    }
+    return new String(res, StandardCharsets.UTF_8);
+  }
 
   public Node() {
     refcount = 0;

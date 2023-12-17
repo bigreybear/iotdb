@@ -18,27 +18,157 @@
  */
 package org.apache.iotdb.db.metadata.artree;
 
+import io.netty.buffer.ByteBuf;
 import org.apache.iotdb.tsfile.utils.Pair;
+import org.apache.iotdb.tsfile.utils.ReadWriteIOUtils;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.io.Serializable;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Iterator;
 
 public class ArtTree extends ChildPtr implements Serializable {
   public ArtTree() {}
 
-  public static void main(String[] args) {
+  public static void main(String[] args) throws IOException {
     System.out.println("hello");
     ArtTree tree = new ArtTree();
-    // NOTE
-    tree.insert("rootxxxxxx.sg1.d2.v2".getBytes(StandardCharsets.UTF_8), 2);
-    tree.insert("rootxxxxxx.sg2.d3.v3".getBytes(StandardCharsets.UTF_8), 2);
-    tree.insert("rootxxxxxx.sg2.d4.v1".getBytes(StandardCharsets.UTF_8), 2);
-    tree.insert("rootxxxxxx.sg2.d3.v1".getBytes(StandardCharsets.UTF_8), 2);
-    tree.insert("rootxxxxxx.sg5.d1.v1".getBytes(StandardCharsets.UTF_8), 2);
-    tree.insert("rootxxxxxx.sg5.d2.v1".getBytes(StandardCharsets.UTF_8), 2);
-    tree.insert("rootxxxxxx.sg6.d1.v1".getBytes(StandardCharsets.UTF_8), 2);
-    System.out.println(tree);
+    //
+    tree.insert("root.sg1.d2.v2".getBytes(StandardCharsets.UTF_8), 1L);
+    tree.insert("root.sg2.d3.v3".getBytes(StandardCharsets.UTF_8), 2L);
+    tree.insert("root.sg2.d4.v1".getBytes(StandardCharsets.UTF_8), 3L);
+    tree.insert("root.sg2.d3.v1".getBytes(StandardCharsets.UTF_8), 4L);
+    tree.insert("root.sg2.xd3.xv1".getBytes(StandardCharsets.UTF_8), 11L);
+    tree.insert("root.sg5.d1.v1".getBytes(StandardCharsets.UTF_8), 5L);
+    tree.insert("root.sg5.d2.v1".getBytes(StandardCharsets.UTF_8), 6L);
+    tree.insert("root.sg6.d1.v1".getBytes(StandardCharsets.UTF_8), 7L);
+    calculateDepth(tree);
+//    System.out.println(tree);
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    serialize(((ArtNode)tree.root), baos);
+    ReadWriteIOUtils.write(tree.root.offset, baos);
+    System.out.println(baos.size());
+    byte[] res = baos.toByteArray();
+    traverse((ArtNode) tree.root, "");
+
+    ArtNode r2 = (ArtNode) deserialize(ByteBuffer.wrap(res));
+    traverseAfterDeserialize(r2, "");
+  }
+
+  public static Node deserialize(ByteBuffer buffer) {
+    int start = buffer.capacity() - 8;
+    buffer.position(start);
+    buffer.position((int) ReadWriteIOUtils.readLong(buffer));
+    return Node.deserialize(buffer);
+  }
+
+  public static void serialize(ArtNode node, ByteArrayOutputStream out) throws IOException {
+    Node child;
+    for (int i = 0; !node.exhausted(i); i++) {
+      if (!node.valid(i)) {
+        continue;
+      }
+      child = node.childAt(i);
+      if (child instanceof Leaf) {
+        child.offset = out.size();
+        child.serialize(out);
+      }
+      if (child instanceof ArtNode) {
+        serialize((ArtNode) child, out);
+      }
+      if (node.exhausted(i+1)) {
+        node.offset = out.size();
+        node.serialize(out);
+      }
+    }
+  }
+
+  public static void traverseAfterDeserialize(ArtNode node, String prefix) {
+    String res = prefix + new String(node.getPartialKey(), 0, node.getPartialLength());
+    Node child;
+    Leaf leaf;
+    String base;
+    for (int i = 0; !node.exhausted(i); i++) {
+      if (!node.valid(i)) {
+        continue;
+      }
+      child = node.childAt(i);
+      if (child instanceof Leaf) {
+        leaf = (Leaf) child;
+        base = res + (char) node.getKeyAt(i);
+        base = base + new String(leaf.getPartialKey());
+        System.out.println(String.format("%s,%d", base, ((Long) leaf.value)));
+      } else {
+        traverseAfterDeserialize((ArtNode) child, res + (char)node.getKeyAt(i));
+      }
+    }
+  }
+
+  public static void traverse(ArtNode node, String prefix) {
+    String res = prefix + new String(node.getPartialKey(), 0, node.getPartialLength());
+    Node child;
+    Leaf leaf;
+    String base;
+    for (int i = 0; !node.exhausted(i); i++) {
+      if (!node.valid(i)) {
+        continue;
+      }
+      child = node.childAt(i);
+      if (child instanceof Leaf) {
+        leaf = (Leaf) child;
+        base = res + (char) node.getKeyAt(i);
+        base = base + Node.translator(leaf.key, leaf.depth, leaf.remain);
+        System.out.println(String.format("%s,%d", base, ((Long) leaf.value)));
+      } else {
+        traverse((ArtNode) child, res + (char)node.getKeyAt(i));
+      }
+    }
+  }
+
+  public static void mark(Node node) {
+    System.out.println(node);
+  }
+
+  public static void calculateDepth(ArtTree tree) {
+    Node node, child;
+    ArtNode anode;
+    Leaf leaf;
+    int deep = 0, i = 0;
+    Deque<Node> stk = new ArrayDeque<>();
+    stk.push(tree.root);
+    String res;
+
+    while (stk.size() != 0) {
+      node = stk.pop();
+      if (node instanceof ArtNode) {
+        anode = (ArtNode) node;
+        i = 0;
+        while (!anode.exhausted(i)) {
+          if (!anode.valid(i)) {
+            i++;
+            continue;
+          }
+          child = anode.childAt(i);
+          child.depth = anode.depth + anode.partial_len + 1;
+          if (child instanceof Leaf) {
+            ((Leaf) child).remain = ((Leaf) child).key.length - child.depth;
+          }
+          stk.push(child);
+          i++;
+        }
+      } else if (node instanceof Leaf) {
+        res = ArtNode.translator(((Leaf) node).key, node.depth, ((Leaf) node).remain);
+//        System.out.println(res);
+        continue;
+      } else {
+        throw new UnsupportedOperationException();
+      }
+    }
   }
 
   public ArtTree(final ArtTree other) {
@@ -186,6 +316,6 @@ public class ArtTree extends ChildPtr implements Serializable {
     }
   }
 
-  Node root = null;
+  public Node root = null;
   long num_elements = 0;
 }

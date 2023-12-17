@@ -18,10 +18,87 @@
  */
 package org.apache.iotdb.db.metadata.artree;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
+import org.apache.iotdb.tsfile.utils.ReadWriteIOUtils;
 
-abstract class ArtNode extends Node {
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+
+public abstract class ArtNode extends Node {
+  public int num_children = 0;
+  public int partial_len = 0;
+  final byte[] partial = new byte[Node.MAX_PREFIX_LEN];
+
+  public abstract byte getType();
+
+  public abstract byte getKeyAt(int i);
+
+  @Override
+  public void serialize(ByteArrayOutputStream out) throws IOException {
+    offset = out.size();
+    ReadWriteIOUtils.write(getType(), out);
+    if (getPartialLength() > 0) {
+      ReadWriteIOUtils.write(true, out);
+      ReadWriteIOUtils.writeVar(new String(getPartialKey(), 0, getPartialLength()), out);
+    } else {
+      ReadWriteIOUtils.write(false, out);
+    }
+    ReadWriteIOUtils.write(num_children, out);
+    for (int i = 0; !this.exhausted(i); i++) {
+      if (!this.valid(i)) {
+        continue;
+      }
+      ReadWriteIOUtils.write(getKeyAt(i), out);
+      ReadWriteIOUtils.write(childAt(i).offset, out);
+    }
+  }
+
+  public static Node deserialize(ByteBuffer buffer, byte type) {
+    String partial = null;
+    if (ReadWriteIOUtils.readBool(buffer)) {
+      partial = ReadWriteIOUtils.readVarIntString(buffer);
+    }
+    int children_cnt = ReadWriteIOUtils.readInt(buffer);
+
+    List<Byte> keys = new ArrayList<>();
+    List<Long> ofs = new ArrayList<>();
+    List<Node> children = new ArrayList<>();
+    for (int i = children_cnt; i > 0; i--) {
+      keys.add(ReadWriteIOUtils.readByte(buffer));
+      ofs.add(ReadWriteIOUtils.readLong(buffer));
+    }
+
+    for (Long o : ofs) {
+      buffer.position(Math.toIntExact(o));
+      children.add(Node.deserialize(buffer));
+    }
+    switch (type) {
+      case 1:
+        return ArtNode4.padding(keys, children, partial);
+      case 2:
+        return ArtNode16.padding(keys, children, partial);
+      case 3:
+        return ArtNode48.padding(keys, children, partial);
+      default:
+        throw new UnsupportedOperationException();
+    }
+  }
+
+  @Override
+  public int getPartialLength() {
+    return partial_len;
+  }
+
+  @Override
+  public byte[] getPartialKey() {
+    return partial;
+  }
+
+  public abstract boolean valid(int i);
+
   public ArtNode() {
     super();
   }
@@ -74,14 +151,6 @@ abstract class ArtNode extends Node {
 
   public abstract Node childAt(int i);
 
-  // NOTE my monitor for byte array
-  public static String translator(byte[] src, int s, int l) {
-    byte[] res = new byte[l];
-    for (int i = l ; i > 0; i--) {
-      res[l-i] = src[s+l-i];
-    }
-    return new String(res, StandardCharsets.UTF_8);
-  }
 
   @Override
   public boolean insert(
@@ -190,8 +259,4 @@ abstract class ArtNode extends Node {
 
     return do_delete;
   }
-
-  int num_children = 0;
-  int partial_len = 0;
-  final byte[] partial = new byte[Node.MAX_PREFIX_LEN];
 }

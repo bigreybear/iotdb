@@ -18,8 +18,71 @@
  */
 package org.apache.iotdb.db.metadata.artree;
 
+import io.netty.buffer.ByteBuf;
+import org.apache.iotdb.tsfile.utils.ReadWriteIOUtils;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.List;
+
+// NOTE keys set in corresponding slot, children set at first null slot
 class ArtNode48 extends ArtNode {
   public static int count;
+
+  @Override
+  public byte getType() {
+    return 3;
+  }
+
+  @Override
+  public byte getKeyAt(int i) {
+    return (byte) i;
+  }
+
+  public static ArtNode48 padding(List<Byte> k, List<Node> c, String p) {
+    ArtNode48 res = new ArtNode48();
+
+    if (p != null) {
+      res.partial_len = p.getBytes().length;
+      System.arraycopy(p.getBytes(), 0, res.partial, 0, res.partial_len);
+    }
+
+    for (int i = 0; i < k.size(); i++) {
+      res.add_child(null, k.get(i), c.get(i));
+    }
+    return res;
+  }
+
+  public static void main(String[] args) throws IOException {
+    byte[] exa = new byte[10];
+    exa[3] = 22;
+    exa[5] = 66;
+
+    ArtNode48 node = new ArtNode48();
+    Leaf l = new Leaf(exa, (long) 123);
+
+    node.add_child(null, (byte) 12, l);
+    node.add_child(null, (byte) 23, l);
+    node.add_child(null, (byte) 45, l);
+    node.add_child(null, (byte) 67, l);
+    node.add_child(null, (byte) 11, l);
+
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    ArtTree.serialize(node, baos);
+    ReadWriteIOUtils.write(node.offset, baos);
+    exa = baos.toByteArray();
+    ByteBuffer buffer = ByteBuffer.wrap(exa);
+    buffer.position(buffer.capacity() - 8);
+    buffer.position((int) ReadWriteIOUtils.readLong(buffer));
+    Node node2 = ArtTree.deserialize(buffer);
+    System.out.println(node2);
+  }
+
+  @Override
+  public boolean valid(int i) {
+    return  keys[i] != 0;
+  }
 
   public ArtNode48() {
     super();
@@ -140,6 +203,7 @@ class ArtNode48 extends ArtNode {
 
   @Override
   public boolean exhausted(int c) {
+    // NOTE still non-zero key ahead, c as index
     for (int i = c; i < 256; i++) {
       if (keys[i] != 0) {
         return false;
@@ -185,6 +249,7 @@ class ArtNode48 extends ArtNode {
     return 0;
   }
 
-  byte[] keys = new byte[256];
-  Node[] children = new Node[48];
+  // NOTE initial value of keys is zero, so handle it as an exception
+  public byte[] keys = new byte[256];
+  public Node[] children = new Node[48];
 }

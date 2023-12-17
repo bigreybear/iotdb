@@ -22,7 +22,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -33,6 +35,34 @@ public class PathTextLoader {
     List<String> res = readFileLines(resultDir + File.separator + "text_series.txt");
     res = res.stream().filter(PathTextLoader::containsNoChinese).collect(Collectors.toList());
     System.out.println(res);
+  }
+
+  public static List<String> getAllPaths() {
+    List<String> res = readFileLines(resultDir + File.separator + "text_series.txt");
+    res = res.stream().filter(PathTextLoader::containsNoChinese).collect(Collectors.toList());
+    return res;
+  }
+
+  public static List<String> getPaths(int s, int size) {
+    List<String> res = readFileLines(resultDir + File.separator + "text_series.txt");
+    res = res.stream().filter(PathTextLoader::containsNoChinese).collect(Collectors.toList());
+
+    if (s + size > res.size()) {
+      return res.subList(res.size() - size, res.size());
+    } else {
+      return res.subList(s, s+size);
+    }
+  }
+
+  public static List<String> getRandomPaths(int size) {
+    List<String> res = readFileLines(resultDir + File.separator + "text_series.txt");
+    res = res.stream().filter(PathTextLoader::containsNoChinese).collect(Collectors.toList());
+    if (size > res.size()) {
+      throw new IllegalArgumentException();
+    }
+
+    Collections.shuffle(res, new Random(System.currentTimeMillis()));
+    return res.subList(0, size);
   }
 
   public static List<String> readFileLines(String filePath) {

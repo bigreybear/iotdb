@@ -18,8 +18,77 @@
  */
 package org.apache.iotdb.db.metadata.artree;
 
+import org.apache.iotdb.tsfile.utils.ReadWriteIOUtils;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
+
 class ArtNode256 extends ArtNode {
   public static int count;
+
+  @Override
+  public byte getType() {
+    return 4;
+  }
+
+  @Override
+  public byte getKeyAt(int i) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void serialize(ByteArrayOutputStream out) throws IOException {
+    offset = out.size();
+    ReadWriteIOUtils.write(getType(), out);
+    if (getPartialLength() > 0) {
+      ReadWriteIOUtils.write(true, out);
+      ReadWriteIOUtils.writeVar(new String(getPartialKey(), 0, getPartialLength()), out);
+    } else {
+      ReadWriteIOUtils.write(false, out);
+    }
+    // NOTE TODO could be many invalid bytes
+    for (int i = 0; i < 256; i++) {
+      ReadWriteIOUtils.write(children[i] == null ? -1L : children[i].offset, out);
+    }
+  }
+
+  public static ArtNode256 deserialize(ByteBuffer buffer) {
+    String partial = null;
+    if (ReadWriteIOUtils.readBool(buffer)) {
+      partial = ReadWriteIOUtils.readVarIntString(buffer);
+    }
+
+    List<Long> ofs = new ArrayList<>(256);
+    List<Node> children = new ArrayList<>(256);
+    for (int i = 256; i > 0; i--) {
+      ofs.add(ReadWriteIOUtils.readLong(buffer));
+    }
+
+    ArtNode256 res = new ArtNode256();
+
+    if (partial != null) {
+      res.partial_len = partial.getBytes().length;
+      System.arraycopy(partial.getBytes(), 0, res.partial, 0, res.partial_len);
+    }
+
+    for (int i = 0; i < ofs.size(); i++) {
+      if (ofs.get(i) == -1) {
+        continue;
+      }
+      buffer.position(Math.toIntExact(ofs.get(i)));
+      res.add_child(null, (byte) i, Node.deserialize(buffer));
+    }
+
+    return res;
+  }
+
+  @Override
+  public boolean valid(int i) {
+    return  children[i] != null;
+  }
 
   public ArtNode256() {
     super();
@@ -140,5 +209,5 @@ class ArtNode256 extends ArtNode {
     return 0;
   }
 
-  Node[] children = new Node[256];
+  public Node[] children = new Node[256];
 }

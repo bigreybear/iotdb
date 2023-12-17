@@ -18,8 +18,42 @@
  */
 package org.apache.iotdb.db.metadata.artree;
 
+import org.apache.iotdb.tsfile.utils.ReadWriteIOUtils;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+
 class Leaf extends Node {
   public static int count;
+  Object value;
+  byte[] key;
+  public static byte type = 0;
+
+  // NOTE out: type, remain_key, offset_of_value
+  @Override
+  public void serialize(ByteArrayOutputStream out) throws IOException {
+    offset = out.size();
+    ReadWriteIOUtils.write(type, out);
+    ReadWriteIOUtils.writeVar(translator(key, depth, remain), out);
+    ReadWriteIOUtils.write(((Long) value), out);
+  }
+
+  public static Node deserialize(ByteBuffer buffer) {
+    String pk = ReadWriteIOUtils.readVarIntString(buffer);
+    byte[] key = (pk == null || pk.length() == 0) ? new byte[0] : pk.getBytes();
+    Object v = ReadWriteIOUtils.readLong(buffer);
+    return new Leaf(key, v);
+  }
+
+  @Override
+  public byte[] getPartialKey() {
+    return key;
+  }
+
+  // NOTE bytes of key belong to the leaf
+  public int remain = 0;
 
   public Leaf(final byte[] key, Object value) {
     super();
@@ -147,7 +181,4 @@ class Leaf extends Node {
     }
     return 0;
   }
-
-  Object value;
-  final byte[] key;
 }
