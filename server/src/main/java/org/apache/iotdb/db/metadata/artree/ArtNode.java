@@ -20,11 +20,12 @@ package org.apache.iotdb.db.metadata.artree;
 
 import org.apache.iotdb.tsfile.utils.ReadWriteIOUtils;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 
 public abstract class ArtNode extends Node {
@@ -32,13 +33,32 @@ public abstract class ArtNode extends Node {
   public int partial_len = 0;
   final byte[] partial = new byte[Node.MAX_PREFIX_LEN];
 
+  // region Mod Methods
+
+  public abstract Iterator<Node> getChildren();
+
   public abstract byte getType();
 
   public abstract byte getKeyAt(int i);
 
   @Override
-  public void serialize(ByteArrayOutputStream out) throws IOException {
-    offset = out.size();
+  public int getMaxDepth() {
+    if (num_children <= 0) {
+      return 0;
+    }
+
+    int[] res = new int[num_children];
+    Iterator<Node> node = this.getChildren();
+    int i = 0;
+    while (node.hasNext()) {
+      res[i++] = node.next().getMaxDepth();
+    }
+
+    return Arrays.stream(res).max().getAsInt() + 1;
+  }
+
+  @Override
+  public void serialize(OutputStream out) throws IOException {
     ReadWriteIOUtils.write(getType(), out);
     if (getPartialLength() > 0) {
       ReadWriteIOUtils.write(true, out);
@@ -46,7 +66,7 @@ public abstract class ArtNode extends Node {
     } else {
       ReadWriteIOUtils.write(false, out);
     }
-    ReadWriteIOUtils.write(num_children, out);
+    ReadWriteIOUtils.write(num_children, out); // todo byte is enough
     for (int i = 0; !this.exhausted(i); i++) {
       if (!this.valid(i)) {
         continue;
@@ -99,6 +119,8 @@ public abstract class ArtNode extends Node {
 
   public abstract boolean valid(int i);
 
+  // endregion
+
   public ArtNode() {
     super();
   }
@@ -150,7 +172,6 @@ public abstract class ArtNode extends Node {
   public abstract int nextChildAtOrAfter(int i);
 
   public abstract Node childAt(int i);
-
 
   @Override
   public boolean insert(

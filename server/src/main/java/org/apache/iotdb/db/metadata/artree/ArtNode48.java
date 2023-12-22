@@ -18,18 +18,22 @@
  */
 package org.apache.iotdb.db.metadata.artree;
 
-import io.netty.buffer.ByteBuf;
 import org.apache.iotdb.tsfile.utils.ReadWriteIOUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Iterator;
 import java.util.List;
 
 // NOTE keys set in corresponding slot, children set at first null slot
 class ArtNode48 extends ArtNode {
   public static int count;
+  // NOTE initial value of keys is zero, so handle it as an exception
+  public byte[] keys = new byte[256];
+  public Node[] children = new Node[48];
 
+  // region Mod Methods
   @Override
   public byte getType() {
     return 3;
@@ -81,8 +85,28 @@ class ArtNode48 extends ArtNode {
 
   @Override
   public boolean valid(int i) {
-    return  keys[i] != 0;
+    return keys[i] != 0;
   }
+
+  @Override
+  public Iterator<Node> getChildren() {
+    return new Iterator<Node>() {
+      int i = 0, lastIndex = 0;
+
+      @Override
+      public boolean hasNext() {
+        return i < num_children;
+      }
+
+      @Override
+      public Node next() {
+        while (!valid(lastIndex++)) {}
+        i++;
+        return children[lastIndex++];
+      }
+    };
+  }
+  // endregion
 
   public ArtNode48() {
     super();
@@ -248,8 +272,4 @@ class ArtNode48 extends ArtNode {
     }
     return 0;
   }
-
-  // NOTE initial value of keys is zero, so handle it as an exception
-  public byte[] keys = new byte[256];
-  public Node[] children = new Node[48];
 }

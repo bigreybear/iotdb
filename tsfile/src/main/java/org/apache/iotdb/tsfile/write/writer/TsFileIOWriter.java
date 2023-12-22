@@ -62,8 +62,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.TreeMap;
-import java.util.logging.ConsoleHandler;
-import java.util.logging.Handler;
 
 import static org.apache.iotdb.tsfile.file.metadata.MetadataIndexConstructor.addCurrentIndexNodeToQueue;
 import static org.apache.iotdb.tsfile.file.metadata.MetadataIndexConstructor.checkAndBuildLevelIndex;
@@ -74,7 +72,7 @@ import static org.apache.iotdb.tsfile.file.metadata.MetadataIndexConstructor.gen
  */
 public class TsFileIOWriter implements AutoCloseable {
 
-  public long metadataCost = 0L;
+  public long metadataCost = 0L, mcp1 = 0L, mcp2 = 0L, mcp3 = 0L;
 
   protected static final byte[] MAGIC_STRING_BYTES;
   public static final byte VERSION_NUMBER_BYTE;
@@ -136,7 +134,7 @@ public class TsFileIOWriter implements AutoCloseable {
     this.out = FSFactoryProducer.getFileOutputFactory().getTsFileOutput(file.getPath(), false);
     this.file = file;
     if (resourceLogger.isDebugEnabled()) {
-      resourceLogger.debug("{} writer is opened.", file.getName());
+      // resourceLogger.debug("{} writer is opened.", file.getName());
     }
     startFile();
   }
@@ -183,9 +181,9 @@ public class TsFileIOWriter implements AutoCloseable {
 
   public int startChunkGroup(String deviceId) throws IOException {
     this.currentChunkGroupDeviceId = deviceId;
-//    if (logger.isDebugEnabled()) {
-//      logger.debug("start chunk group:{}, file position {}", deviceId, out.getPosition());
-//    }
+    //    if (logger.isDebugEnabled()) {
+    //      logger.debug("start chunk group:{}, file position {}", deviceId, out.getPosition());
+    //    }
     chunkMetadataList = new ArrayList<>();
     ChunkGroupHeader chunkGroupHeader = new ChunkGroupHeader(currentChunkGroupDeviceId);
     return chunkGroupHeader.serializeTo(out.wrapAsStream());
@@ -294,9 +292,9 @@ public class TsFileIOWriter implements AutoCloseable {
     readChunkMetadataAndConstructIndexTree();
 
     long footerIndex = out.getPosition();
-//    if (logger.isDebugEnabled()) {
-//      logger.debug("start to flush the footer,file pos:{}", footerIndex);
-//    }
+    //    if (logger.isDebugEnabled()) {
+    //      logger.debug("start to flush the footer,file pos:{}", footerIndex);
+    //    }
 
     // write magic string
     out.write(MAGIC_STRING_BYTES);
@@ -304,7 +302,7 @@ public class TsFileIOWriter implements AutoCloseable {
     // close file
     out.close();
     if (resourceLogger.isDebugEnabled() && file != null) {
-      resourceLogger.debug("{} writer is closed.", file.getName());
+      // resourceLogger.debug("{} writer is closed.", file.getName());
     }
     if (file != null) {
       File chunkMetadataFile = new File(file.getAbsolutePath() + CHUNK_METADATA_TEMP_FILE_SUFFIX);
@@ -365,7 +363,8 @@ public class TsFileIOWriter implements AutoCloseable {
               generateRootNode(
                   measurementMetadataIndexQueue, out, MetadataIndexNodeType.INTERNAL_MEASUREMENT));
           currentIndexNode = new MetadataIndexNode(MetadataIndexNodeType.LEAF_MEASUREMENT);
-          this.metadataCost += (out.getPosition() - a);
+          this.mcp1 += out.getPosition() - a;
+          this.metadataCost += out.getPosition() - a;
         }
         measurementMetadataIndexQueue = new ArrayDeque<>();
         seriesIdxForCurrDevice = 0;
@@ -406,29 +405,35 @@ public class TsFileIOWriter implements AutoCloseable {
               measurementMetadataIndexQueue, out, MetadataIndexNodeType.INTERNAL_MEASUREMENT));
     }
 
+    this.mcp2 += (out.getPosition() - b);
     this.metadataCost += (out.getPosition() - b);
 
-    long metadataStartPos = out.getPosition();
+    long c = out.getPosition();
 
     // mark metadata tree
     // serialize measurement entry(:measurement -> TSMeta_offset) into buffer <br>
     // and construct IndexNode for device (:device -> first_
     MetadataIndexNode metadataIndex = checkAndBuildLevelIndex(deviceMetadataIndexMap, out);
 
+    long c1 = out.getPosition();
     TsFileMetadata tsFileMetadata = new TsFileMetadata();
     tsFileMetadata.setMetadataIndex(metadataIndex);
     tsFileMetadata.setMetaOffset(metaOffset);
 
     int size = tsFileMetadata.serializeTo(out.wrapAsStream());
 
-    long metadataEndPos = out.getPosition();
+    long c2 = out.getPosition();
 
-    this.metadataCost += (metadataEndPos - metadataStartPos);
+    this.mcp3 += (c2 - c);
+    this.metadataCost += (c2 - c);
 
     size += tsFileMetadata.serializeBloomFilter(out.wrapAsStream(), filter);
 
     // write TsFileMetaData size
     ReadWriteIOUtils.write(size, out.wrapAsStream());
+    // System.out.println(String.format("MIN cost break down, c1:%d, c2:%d, c3:%d", mcp1, mcp2,
+    // mcp3));
+    // System.out.println(String.format("c1-c:%d, c2-c1:%d", c1-c, c2-c1));
   }
 
   private void checkInMemoryPathCount() {

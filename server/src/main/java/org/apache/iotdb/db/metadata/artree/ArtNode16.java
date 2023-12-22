@@ -18,11 +18,15 @@
  */
 package org.apache.iotdb.db.metadata.artree;
 
+import java.util.Iterator;
 import java.util.List;
 
 class ArtNode16 extends ArtNode {
   public static int count;
+  public byte[] keys = new byte[16];
+  public Node[] children = new Node[16];
 
+  // region Mod Methods
   @Override
   public byte getType() {
     return 2;
@@ -35,7 +39,7 @@ class ArtNode16 extends ArtNode {
 
   @Override
   public boolean valid(int i) {
-    return  i < num_children;
+    return i < num_children;
   }
 
   public static ArtNode16 padding(List<Byte> k, List<Node> c, String p) {
@@ -51,6 +55,25 @@ class ArtNode16 extends ArtNode {
     }
     return res;
   }
+
+  @Override
+  public Iterator<Node> getChildren() {
+    return new Iterator<Node>() {
+      int i = 0;
+
+      @Override
+      public boolean hasNext() {
+        return i < num_children;
+      }
+
+      @Override
+      public Node next() {
+        return children[i++];
+      }
+    };
+  }
+
+  // endregion
 
   public ArtNode16() {
     super();
@@ -208,7 +231,4 @@ class ArtNode16 extends ArtNode {
     }
     return 0;
   }
-
-  public byte[] keys = new byte[16];
-  public Node[] children = new Node[16];
 }

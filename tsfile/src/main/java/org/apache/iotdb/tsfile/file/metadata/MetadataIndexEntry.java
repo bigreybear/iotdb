@@ -27,8 +27,8 @@ import java.nio.ByteBuffer;
 
 public class MetadataIndexEntry {
 
-  private String name;
-  private long offset;
+  public String name;
+  public long offset;
 
   public MetadataIndexEntry(String name, long offset) {
     this.name = name;

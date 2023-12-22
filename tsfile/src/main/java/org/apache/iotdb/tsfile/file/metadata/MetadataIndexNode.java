@@ -35,7 +35,7 @@ import java.util.List;
 public class MetadataIndexNode {
 
   private static final TSFileConfig config = TSFileDescriptor.getInstance().getConfig();
-  private final List<MetadataIndexEntry> children;
+  public final List<MetadataIndexEntry> children;
   private long endOffset;
 
   /** type of the child node at offset */

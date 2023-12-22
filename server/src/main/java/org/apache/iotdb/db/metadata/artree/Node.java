@@ -20,8 +20,8 @@ package org.apache.iotdb.db.metadata.artree;
 
 import org.apache.iotdb.tsfile.utils.ReadWriteIOUtils;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -31,11 +31,14 @@ public abstract class Node implements Serializable {
   public long offset = -1L;
   public int depth = 0;
 
-  public abstract void serialize(ByteArrayOutputStream out) throws IOException;
+  // region Mod Methods
+
+  /** Serialize to ByteArrayOutputStream for measuring size. */
+  public abstract void serialize(OutputStream out) throws IOException;
 
   public static Node deserialize(ByteBuffer buffer) {
     byte t = ReadWriteIOUtils.readByte(buffer);
-    switch (t){
+    switch (t) {
       case 0:
         return Leaf.deserialize(buffer);
       case 1:
@@ -50,7 +53,7 @@ public abstract class Node implements Serializable {
   }
 
   public int getPartialLength() {
-   throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException();
   }
 
   public byte[] getPartialKey() {
@@ -69,6 +72,10 @@ public abstract class Node implements Serializable {
     }
     return new String(res, StandardCharsets.UTF_8);
   }
+
+  public abstract int getMaxDepth();
+
+  // endregion
 
   public Node() {
     refcount = 0;

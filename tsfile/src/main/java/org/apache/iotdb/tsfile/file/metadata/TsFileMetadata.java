@@ -37,7 +37,7 @@ public class TsFileMetadata {
   private BloomFilter bloomFilter;
 
   // List of <name, offset, childMetadataIndexType>
-  private MetadataIndexNode metadataIndex;
+  public MetadataIndexNode metadataIndex;
 
   // offset of MetaMarker.SEPARATOR
   private long metaOffset;

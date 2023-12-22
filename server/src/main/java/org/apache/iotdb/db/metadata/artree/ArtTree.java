@@ -18,13 +18,12 @@
  */
 package org.apache.iotdb.db.metadata.artree;
 
-import io.netty.buffer.ByteBuf;
+import org.apache.iotdb.db.metadata.research.MockARTFileOutputStream;
 import org.apache.iotdb.tsfile.utils.Pair;
 import org.apache.iotdb.tsfile.utils.ReadWriteIOUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -33,6 +32,10 @@ import java.util.Deque;
 import java.util.Iterator;
 
 public class ArtTree extends ChildPtr implements Serializable {
+
+  public Node root = null;
+  long num_elements = 0;
+
   public ArtTree() {}
 
   public static void main(String[] args) throws IOException {
@@ -48,23 +51,72 @@ public class ArtTree extends ChildPtr implements Serializable {
     tree.insert("root.sg5.d2.v1".getBytes(StandardCharsets.UTF_8), 6L);
     tree.insert("root.sg6.d1.v1".getBytes(StandardCharsets.UTF_8), 7L);
     calculateDepth(tree);
-//    System.out.println(tree);
+    //    System.out.println(tree);
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    serialize(((ArtNode)tree.root), baos);
+    serialize(((ArtNode) tree.root), baos);
     ReadWriteIOUtils.write(tree.root.offset, baos);
     System.out.println(baos.size());
     byte[] res = baos.toByteArray();
     traverse((ArtNode) tree.root, "");
+    System.out.println(tree.totalNodes());
+    System.out.println(tree.totalDepth());
 
     ArtNode r2 = (ArtNode) deserialize(ByteBuffer.wrap(res));
     traverseAfterDeserialize(r2, "");
+    tree.root = r2;
+    System.out.println(tree.totalNodes());
+    System.out.println(tree.totalDepth());
   }
+
+  // region Mod Methods
+
+  // region Utils
+
+  // todo
+
+  public int totalNodes() {
+    Deque<Node> nodes = new ArrayDeque<>();
+    Node n;
+    nodes.add(root);
+    int res = 0;
+    while (nodes.size() > 0) {
+      n = nodes.pop();
+      res++;
+      if (n instanceof ArtNode) {
+        for (Iterator<Node> it = ((ArtNode) n).getChildren(); it.hasNext(); ) {
+          nodes.add(it.next());
+        }
+      }
+    }
+    return res;
+  }
+
+  public int totalDepth() {
+    return root.getMaxDepth();
+  }
+
+  // endregion
 
   public static Node deserialize(ByteBuffer buffer) {
     int start = buffer.capacity() - 8;
     buffer.position(start);
     buffer.position((int) ReadWriteIOUtils.readLong(buffer));
     return Node.deserialize(buffer);
+  }
+
+  public int serialize(ByteArrayOutputStream out) throws IOException {
+    calculateDepth(this);
+    serialize(((ArtNode) root), out);
+    ReadWriteIOUtils.write(root.offset, out);
+    return out.size();
+  }
+
+  public long serializeToFile(MockARTFileOutputStream out) throws IOException {
+    long startOffset = out.getPosition();
+    calculateDepth(this);
+    serializeToFile(((ArtNode) root), out);
+    ReadWriteIOUtils.write(root.offset, out);
+    return out.getPosition() - startOffset;
   }
 
   public static void serialize(ArtNode node, ByteArrayOutputStream out) throws IOException {
@@ -81,8 +133,30 @@ public class ArtTree extends ChildPtr implements Serializable {
       if (child instanceof ArtNode) {
         serialize((ArtNode) child, out);
       }
-      if (node.exhausted(i+1)) {
+      if (node.exhausted(i + 1)) {
         node.offset = out.size();
+        node.serialize(out);
+      }
+    }
+  }
+
+  private static void serializeToFile(ArtNode node, MockARTFileOutputStream out)
+      throws IOException {
+    Node child;
+    for (int i = 0; !node.exhausted(i); i++) {
+      if (!node.valid(i)) {
+        continue;
+      }
+      child = node.childAt(i);
+      if (child instanceof Leaf) {
+        child.offset = out.getPosition();
+        child.serialize(out);
+      }
+      if (child instanceof ArtNode) {
+        serializeToFile((ArtNode) child, out);
+      }
+      if (node.exhausted(i + 1)) {
+        node.offset = out.getPosition();
         node.serialize(out);
       }
     }
@@ -104,7 +178,7 @@ public class ArtTree extends ChildPtr implements Serializable {
         base = base + new String(leaf.getPartialKey());
         System.out.println(String.format("%s,%d", base, ((Long) leaf.value)));
       } else {
-        traverseAfterDeserialize((ArtNode) child, res + (char)node.getKeyAt(i));
+        traverseAfterDeserialize((ArtNode) child, res + (char) node.getKeyAt(i));
       }
     }
   }
@@ -125,13 +199,17 @@ public class ArtTree extends ChildPtr implements Serializable {
         base = base + Node.translator(leaf.key, leaf.depth, leaf.remain);
         System.out.println(String.format("%s,%d", base, ((Long) leaf.value)));
       } else {
-        traverse((ArtNode) child, res + (char)node.getKeyAt(i));
+        traverse((ArtNode) child, res + (char) node.getKeyAt(i));
       }
     }
   }
 
   public static void mark(Node node) {
     System.out.println(node);
+  }
+
+  public void calculateDepth() {
+    calculateDepth(this);
   }
 
   public static void calculateDepth(ArtTree tree) {
@@ -163,13 +241,15 @@ public class ArtTree extends ChildPtr implements Serializable {
         }
       } else if (node instanceof Leaf) {
         res = ArtNode.translator(((Leaf) node).key, node.depth, ((Leaf) node).remain);
-//        System.out.println(res);
+        //        System.out.println(res);
         continue;
       } else {
         throw new UnsupportedOperationException();
       }
     }
   }
+
+  // endregion
 
   public ArtTree(final ArtTree other) {
     root = other.root;
@@ -315,7 +395,4 @@ public class ArtTree extends ChildPtr implements Serializable {
       return 0;
     }
   }
-
-  public Node root = null;
-  long num_elements = 0;
 }

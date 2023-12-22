@@ -79,6 +79,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.TreeMap;
@@ -467,7 +468,7 @@ public class TsFileSequenceReader implements AutoCloseable {
     return timeseriesMetadataList;
   }
 
-  /* Get leaf MetadataIndexPair which contains path */
+  /* Get leaf MetadataIndexPair which contains path NOTE using this to test read performance. */
   private Pair<MetadataIndexEntry, Long> getLeafMetadataIndexPair(Path path) throws IOException {
     readFileMetadata();
     MetadataIndexNode deviceMetadataIndexNode = tsFileMetaData.getMetadataIndex();
@@ -489,6 +490,11 @@ public class TsFileSequenceReader implements AutoCloseable {
           getMetadataAndEndOffset(metadataIndexNode, path.getMeasurement(), false, false);
     }
     return metadataIndexPair;
+  }
+
+  public long getOffsetByPath(String dev, String measurement) throws IOException {
+    // NOTE test method
+    return Objects.requireNonNull(getLeafMetadataIndexPair(new Path(dev, measurement))).right;
   }
 
   // This method is only used for TsFile
@@ -523,9 +529,11 @@ public class TsFileSequenceReader implements AutoCloseable {
 
     for (int i = 0; i < measurementList.size(); i++) {
       if (measurementsHadFound.contains(measurementList.get(i))) {
+        // NOTE could be found from previous MIN offset, fast-forward then
         continue;
       }
       timeseriesMetadataList.clear();
+      // NOTE get the rough(1/256) offset of target TSM
       measurementMetadataIndexPair =
           getMetadataAndEndOffset(
               measurementMetadataIndexNode, measurementList.get(i), false, false);
@@ -537,6 +545,7 @@ public class TsFileSequenceReader implements AutoCloseable {
       buffer =
           readData(
               measurementMetadataIndexPair.left.getOffset(), measurementMetadataIndexPair.right);
+      // NOTE deserialize all TSMs as TSM-List
       while (buffer.hasRemaining()) {
         try {
           timeseriesMetadataList.add(TimeseriesMetadata.deserializeFrom(buffer, true));
@@ -546,6 +555,8 @@ public class TsFileSequenceReader implements AutoCloseable {
           throw e;
         }
       }
+      // NOTE TSM-List may contains later measurements since it's deserialized from a rough start
+      // offset
       for (int j = i; j < measurementList.size(); j++) {
         String current = measurementList.get(j);
         if (!measurementsHadFound.contains(current)) {
@@ -850,6 +861,7 @@ public class TsFileSequenceReader implements AutoCloseable {
       if (i != metadataIndexListSize - 1) {
         endOffset = measurementNode.getChildren().get(i + 1).getOffset();
       }
+      // NOTE by denoting end-offset, read bytes by a grain of one MIN
       ByteBuffer nextBuffer = readData(measurementNode.getChildren().get(i).getOffset(), endOffset);
       if (measurementNode.getNodeType().equals(MetadataIndexNodeType.LEAF_MEASUREMENT)) {
         // leaf measurement node

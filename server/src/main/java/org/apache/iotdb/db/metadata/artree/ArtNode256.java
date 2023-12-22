@@ -20,14 +20,17 @@ package org.apache.iotdb.db.metadata.artree;
 
 import org.apache.iotdb.tsfile.utils.ReadWriteIOUtils;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 class ArtNode256 extends ArtNode {
   public static int count;
+
+  // region Mod Methods
 
   @Override
   public byte getType() {
@@ -40,8 +43,7 @@ class ArtNode256 extends ArtNode {
   }
 
   @Override
-  public void serialize(ByteArrayOutputStream out) throws IOException {
-    offset = out.size();
+  public void serialize(OutputStream out) throws IOException {
     ReadWriteIOUtils.write(getType(), out);
     if (getPartialLength() > 0) {
       ReadWriteIOUtils.write(true, out);
@@ -87,8 +89,29 @@ class ArtNode256 extends ArtNode {
 
   @Override
   public boolean valid(int i) {
-    return  children[i] != null;
+    return children[i] != null;
   }
+
+  @Override
+  public Iterator<Node> getChildren() {
+    return new Iterator<Node>() {
+      int i = 0, lastIndex = 0;
+
+      @Override
+      public boolean hasNext() {
+        return i < num_children;
+      }
+
+      @Override
+      public Node next() {
+        while (!valid(lastIndex++)) {}
+        i++;
+        return children[lastIndex++];
+      }
+    };
+  }
+
+  // endregion
 
   public ArtNode256() {
     super();

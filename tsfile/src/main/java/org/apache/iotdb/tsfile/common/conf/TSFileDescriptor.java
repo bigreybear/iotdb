@@ -123,7 +123,7 @@ public class TSFileDescriptor {
       logger.info("try loading {} from {}", TSFileConfig.CONFIG_FILE_NAME, file);
       return loadPropertiesFromFile(file);
     } else {
-//      logger.warn("not found {}, use the default configs.", TSFileConfig.CONFIG_FILE_NAME);
+      //      logger.warn("not found {}, use the default configs.", TSFileConfig.CONFIG_FILE_NAME);
       return null;
     }
   }

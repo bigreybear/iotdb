@@ -132,6 +132,10 @@ public class PartialPath extends Path implements Comparable<Path>, Cloneable {
     return new PartialPath(newPathNodes);
   }
 
+  public String getPrefixString(int i) {
+    return String.join(TsFileConstant.PATH_SEPARATOR, Arrays.copyOfRange(nodes, 0, i));
+  }
+
   public String[] getNodes() {
     return nodes;
   }

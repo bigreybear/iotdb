@@ -18,12 +18,16 @@
  */
 package org.apache.iotdb.db.metadata.research;
 
+import org.apache.iotdb.db.metadata.path.PartialPath;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -31,10 +35,14 @@ import java.util.stream.Stream;
 public class PathTextLoader {
   static String resultDir = "mtree_data";
 
-  public static void main(String[] args) {
+  public static void main2(String[] args) {
     List<String> res = readFileLines(resultDir + File.separator + "text_series.txt");
     res = res.stream().filter(PathTextLoader::containsNoChinese).collect(Collectors.toList());
     System.out.println(res);
+  }
+
+  public static void main(String[] args) {
+    sortPathsByPrefix();
   }
 
   public static List<String> getAllPaths() {
@@ -43,20 +51,48 @@ public class PathTextLoader {
     return res;
   }
 
-  public static List<String> getPaths(int s, int size) {
+  private static void sortPathsByPrefix() {
+    List<String> paths = getAllPaths();
+    Map<String, Integer> devStatistic = new HashMap<>();
+    PartialPath pp;
+    String pre;
+    for (String path : paths) {
+      try {
+        pp = new PartialPath(path);
+      } catch (Exception e) {
+        continue;
+      }
+      // define prefix index
+      pre = pp.getPrefixString(4);
+      devStatistic.merge(pre, 1, Integer::sum);
+    }
+
+    System.out.println(String.format("Total devices:%d", devStatistic.size()));
+
+    devStatistic.entrySet().stream()
+        .sorted(Collections.reverseOrder(Map.Entry.comparingByValue()))
+        .forEach(
+            e -> {
+              if (e.getValue() > 1000) {
+                System.out.println(e.getKey());
+              }
+            });
+  }
+
+  public static List<String> getAdjacentPathsWithoutChinese(int s, int size) {
     List<String> res = readFileLines(resultDir + File.separator + "text_series.txt");
-    res = res.stream().filter(PathTextLoader::containsNoChinese).collect(Collectors.toList());
+    // res = res.stream().filter(PathTextLoader::containsNoChinese).collect(Collectors.toList());
 
     if (s + size > res.size()) {
       return res.subList(res.size() - size, res.size());
     } else {
-      return res.subList(s, s+size);
+      return res.subList(s, s + size);
     }
   }
 
-  public static List<String> getRandomPaths(int size) {
+  public static List<String> getRandomPathsWithoutChinese(int size) {
     List<String> res = readFileLines(resultDir + File.separator + "text_series.txt");
-    res = res.stream().filter(PathTextLoader::containsNoChinese).collect(Collectors.toList());
+    // res = res.stream().filter(PathTextLoader::containsNoChinese).collect(Collectors.toList());
     if (size > res.size()) {
       throw new IllegalArgumentException();
     }

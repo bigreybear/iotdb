@@ -20,10 +20,9 @@ package org.apache.iotdb.db.metadata.artree;
 
 import org.apache.iotdb.tsfile.utils.ReadWriteIOUtils;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 
 class Leaf extends Node {
   public static int count;
@@ -31,10 +30,11 @@ class Leaf extends Node {
   byte[] key;
   public static byte type = 0;
 
+  // region Mod Methods
+
   // NOTE out: type, remain_key, offset_of_value
   @Override
-  public void serialize(ByteArrayOutputStream out) throws IOException {
-    offset = out.size();
+  public void serialize(OutputStream out) throws IOException {
     ReadWriteIOUtils.write(type, out);
     ReadWriteIOUtils.writeVar(translator(key, depth, remain), out);
     ReadWriteIOUtils.write(((Long) value), out);
@@ -52,8 +52,15 @@ class Leaf extends Node {
     return key;
   }
 
+  @Override
+  public int getMaxDepth() {
+    return 1;
+  }
+
   // NOTE bytes of key belong to the leaf
   public int remain = 0;
+
+  // endregion
 
   public Leaf(final byte[] key, Object value) {
     super();

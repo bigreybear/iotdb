@@ -18,10 +18,7 @@
  */
 package org.apache.iotdb.db.metadata.artree;
 
-import org.apache.iotdb.tsfile.utils.ReadWriteIOUtils;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
+import java.util.Iterator;
 import java.util.List;
 
 class ArtNode4 extends ArtNode {
@@ -31,6 +28,25 @@ class ArtNode4 extends ArtNode {
   public ArtNode4() {
     super();
     count++;
+  }
+
+  // region Mod Methods
+
+  @Override
+  public Iterator<Node> getChildren() {
+    return new Iterator<Node>() {
+      int i = 0;
+
+      @Override
+      public boolean hasNext() {
+        return i < num_children;
+      }
+
+      @Override
+      public Node next() {
+        return children[i++];
+      }
+    };
   }
 
   @Override
@@ -56,6 +72,13 @@ class ArtNode4 extends ArtNode {
     }
     return res;
   }
+
+  @Override
+  public boolean valid(int i) {
+    return i < num_children;
+  }
+
+  // endregion
 
   public ArtNode4(final ArtNode4 other) {
     super(other);
@@ -190,11 +213,6 @@ class ArtNode4 extends ArtNode {
   @Override
   public Node childAt(int i) {
     return children[i];
-  }
-
-  @Override
-  public boolean valid(int i) {
-    return  i < num_children;
   }
 
   @Override
