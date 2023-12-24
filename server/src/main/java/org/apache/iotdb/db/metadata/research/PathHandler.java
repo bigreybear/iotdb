@@ -26,7 +26,7 @@ public class PathHandler {
     }
 
     Iterator<String> ite;
-    int cnt, cntTotal = 0;
+    int cnt, removeCnt = 0;
     List<String> res = new ArrayList<>();
     // filter 1/256 measurements per device
     for (String device : m1.keySet()) {
@@ -36,10 +36,10 @@ public class PathHandler {
         ite.next();
         if (cnt % 256 != 0) {
           ite.remove();
+          removeCnt++;
         }
         cnt++;
       }
-      cntTotal += cnt;
 
       ite = m1.get(device).iterator();
       while (ite.hasNext()) {
@@ -47,10 +47,12 @@ public class PathHandler {
       }
     }
 
-    System.out.println(
-        String.format(
-            "Remove %d series among %d devices as only 1/256 measurements per device could be stored.",
-            cntTotal, m1.size()));
+    if (removeCnt != 0) {
+      System.out.println(
+          String.format(
+              "Remove %d series among %d devices as only 1/256 measurements per device could be stored.",
+              removeCnt, m1.size()));
+    }
     return res;
   }
 
@@ -67,9 +69,11 @@ public class PathHandler {
         droppedSize++;
       }
     }
-    System.out.println(
-        String.format(
-            "Paths after check:%d, dropped as illegal syntax :%d", res.size(), droppedSize));
+    if (droppedSize != 0) {
+      System.out.println(
+          String.format(
+              "Paths after check:%d, dropped as illegal syntax :%d", res.size(), droppedSize));
+    }
     return res;
   }
 
@@ -117,8 +121,10 @@ public class PathHandler {
       }
     }
 
-    System.out.println(
-        String.format("Remove %d among %d paths as prefix of others.", c, c + res.size()));
+    if (c != 0) {
+      System.out.println(
+          String.format("Remove %d among %d paths as prefix of others.", c, c + res.size()));
+    }
     return res;
   }
 }

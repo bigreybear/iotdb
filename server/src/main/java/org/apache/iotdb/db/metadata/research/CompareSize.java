@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -28,17 +29,57 @@ import java.util.stream.Collectors;
 
 import static org.apache.iotdb.db.metadata.research.PathHandler.*;
 
-public class Compare {
-  private static final String FILE_PATH = "mtree_test".concat("_TsFileIOWriterTest.tsfile");
-  private static final int[] SIZE_TEST_SCALE = {50000};
-  private static final int DATASET_SIZE = 400000;
-  private static final int TEST_RUN = 1; // for guarantee stability
+public class CompareSize {
+  public static final int DATASET_SIZE = 400000;
 
-  private static final Logger logger = LoggerFactory.getLogger(Compare.class);
+  private static final String FILE_PATH = "mtree_test".concat("_TsFileIOWriterTest.tsfile");
+  private static final int[] SIZE_TEST_SCALE = {1000, 2000, 3000, 5000};
+  private static int LARGEST_SCALE = SIZE_TEST_SCALE[SIZE_TEST_SCALE.length - 1];
+  private static final int TEST_RUN = 3; // for guarantee stability
+
+  private static final Map<String, List<int[]>> dimsToResults = new HashMap<>();
+
+  private static final Logger logger = LoggerFactory.getLogger(CompareSize.class);
 
   public static void main(String[] args) throws IOException, IllegalPathException {
 
-    compareWithFileSize(false);
+    List<String> p;
+    for (int i = 0; i < TEST_RUN; i++) {
+      System.out.println("Test Run:" + i);
+
+//      p = PathTextLoader.getAdjacentPaths(LARGEST_SCALE, true);
+//      standardCompareSize(p, "Adjacent With Chinese");
+//
+//      p = PathTextLoader.getAdjacentPaths(LARGEST_SCALE, false);
+//      standardCompareSize(p, "Adjacent Without Chinese");
+//
+//      p = PathTextLoader.getRandomPaths(LARGEST_SCALE, true);
+//      standardCompareSize(p, "Random With Chinese");
+//
+//      p = PathTextLoader.getRandomPaths(LARGEST_SCALE, false);
+//      standardCompareSize(p, "Random Without Chinese");
+
+      p = PathTextLoader.getAdjacentPaths(LARGEST_SCALE, false);
+      System.out.println(analyzeDevices(p));
+      p = adjustWithBaoWuModeling(p);
+      System.out.println(analyzeDevices(p));
+//      standardCompareSize(p, "Adjacent Without Chinese, Adjusted");
+
+//      p = PathTextLoader.getAdjacentPaths(LARGEST_SCALE, true);
+//      p = adjustWithBaoWuModeling(p);
+//      standardCompareSize(p, "Adjacent With Chinese, Adjusted");
+//
+//      p = PathTextLoader.getRandomPaths(LARGEST_SCALE, false);
+//      p = adjustWithBaoWuModeling(p);
+//      standardCompareSize(p, "Random Without Chinese, Adjusted");
+//
+//      p = PathTextLoader.getRandomPaths(LARGEST_SCALE, true);
+//      p = adjustWithBaoWuModeling(p);
+//      standardCompareSize(p, "Random With Chinese, Adjusted");
+    }
+    normalizeAndPrintResults();
+
+//    compareWithFileSize(false);
     // compareWithFileSize(true);
     // int totalLength;
     // int testSize = 2000;
@@ -67,8 +108,79 @@ public class Compare {
     // paths.size()));
   }
 
+  /**
+   * Dimensions to control comparison:<br>
+   *  1. w/o Chinese<br>
+   *  2. adjust modeling (.Value suffix for BaoWu case)<br>
+   *  3. random or adajcent paths<br>
+   *
+   * <p>Configs to comparison:<br>
+   *  1. scale<br>
+   *  2. run numbers<br>
+   *
+   * <p>Should always align with TsMeta otherwise unfair.<br>
+   *
+   * Thus standard process as:<br>
+   *  1. prepare paths with dimensions.(Chinese?adjust?adjacent?)<br>
+   *  1.1 Prefix check necessary<br>
+   *  2. ingest TsFile<br>
+   *  3. align with TsMeta<br>
+   *  4. ingest Art<br>
+   *  5. result<br>
+   */
+  public static void standardCompareSize(List<String> naivePaths, String dims) throws IllegalPathException, IOException {
+    if (naivePaths.size() < SIZE_TEST_SCALE[SIZE_TEST_SCALE.length - 1]) {
+      logger.error("Paths not enough to perform the largest scale test.");
+      return;
+    }
+
+    // ori for length of aligned paths
+    int[] ori, art, tsf;
+
+    if (dimsToResults.containsKey(dims)) {
+      List<int[]> r = dimsToResults.get(dims);
+      ori = r.get(0);
+      art = r.get(1);
+      tsf = r.get(2);
+    } else {
+      ori = new int[SIZE_TEST_SCALE.length];
+      art = new int[SIZE_TEST_SCALE.length];
+      tsf = new int[SIZE_TEST_SCALE.length];
+      dimsToResults.put(dims, new ArrayList<>(Arrays.asList(ori, art, tsf)));
+    }
+
+    List<String> paths;
+    for (int i = 0; i < SIZE_TEST_SCALE.length; i++) {
+      paths = naivePaths.subList(0, SIZE_TEST_SCALE[i]);
+      paths = filterPathSyntax(paths);
+      paths = checkPrefix(paths);
+      tsf[i] += testTsFile(paths);
+      paths = alignPathsWithTsMeta(paths);
+      ori[i] = paths.stream().mapToInt(String::length).sum();
+      art[i] += testARTFileSize(paths);
+    }
+  }
+
+  public static void normalizeAndPrintResults() {
+    for (Map.Entry<String, List<int[]>> e : dimsToResults.entrySet()){
+      for (int[] a : e.getValue()) {
+        for (int i = 0; i < a.length; i++) {
+          a[i] = a[i] / TEST_RUN;
+        }
+      }
+
+      StringBuilder builder = new StringBuilder();
+      builder.append(String.format("%s:\n", e.getKey()));
+      builder.append(String.format("ori: %s:\n", printArrayAsOneLine(e.getValue().get(0))));
+      builder.append(String.format("art: %s:\n", printArrayAsOneLine(e.getValue().get(1))));
+      builder.append(String.format("tsf: %s:\n", printArrayAsOneLine(e.getValue().get(2))));
+      System.out.println(builder);
+    }
+  }
+
   // NOTE logic:
   // decide size, choose paths, check syntax, calc ori, art, tsfile, change size
+  @Deprecated
   public static void compareWithFileSize(boolean random) throws IOException, IllegalPathException {
     String title = random ? "Random selected Paths." : "Adjacent Selected Paths.";
     // original paths
@@ -164,15 +276,21 @@ public class Compare {
     // device -> measurements
     Map<String, TreeSet<String>> m1 = new TreeMap<>();
     PartialPath pp;
+    int pathTotalLen = 0, sensorTotalLen = 0, validPaths = 0;
     for (String p : paths) {
       try {
         pp = new PartialPath(p);
+        validPaths ++;
+        pathTotalLen += p.length();
+        sensorTotalLen += pp.getMeasurement().length();
         m1.computeIfAbsent(pp.getDevice(), k -> new TreeSet<>()).add(pp.getMeasurement());
       } catch (Exception e) {
       }
     }
 
-    return String.format("Valid paths:%d, devices:%d", paths.size(), m1.size());
+    return String.format(
+        "Input paths:%d, Valid paths:%d, devices:%d, Ave path len:%d, Ave Sensor Len:%d",
+        paths.size(), validPaths, m1.size(), pathTotalLen/validPaths, sensorTotalLen/validPaths);
   }
 
   // region Compare Body

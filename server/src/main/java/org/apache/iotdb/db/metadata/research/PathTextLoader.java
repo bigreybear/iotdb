@@ -79,9 +79,11 @@ public class PathTextLoader {
             });
   }
 
-  public static List<String> getAdjacentPathsWithoutChinese(int s, int size) {
+  public static List<String> getAdjacentPaths(int s, int size, boolean withChinese) {
     List<String> res = readFileLines(resultDir + File.separator + "text_series.txt");
-    // res = res.stream().filter(PathTextLoader::containsNoChinese).collect(Collectors.toList());
+    if (!withChinese) {
+      res = res.stream().filter(PathTextLoader::containsNoChinese).collect(Collectors.toList());
+    }
 
     if (s + size > res.size()) {
       return res.subList(res.size() - size, res.size());
@@ -90,9 +92,24 @@ public class PathTextLoader {
     }
   }
 
+  public static List<String> getAdjacentPaths(int size, boolean withChinese) {
+    Random r = new Random(System.currentTimeMillis());
+    return getAdjacentPaths(r.nextInt(CompareSize.DATASET_SIZE), size, withChinese);
+  }
+
+  public static List<String> getAdjacentPathsWithoutChinese(int s, int size) {
+    return getAdjacentPaths(s, size, false);
+  }
+
   public static List<String> getRandomPathsWithoutChinese(int size) {
+    return getRandomPaths(size, false);
+  }
+
+  public static List<String> getRandomPaths(int size, boolean withChinese) {
     List<String> res = readFileLines(resultDir + File.separator + "text_series.txt");
-    // res = res.stream().filter(PathTextLoader::containsNoChinese).collect(Collectors.toList());
+    if (!withChinese) {
+      res = res.stream().filter(PathTextLoader::containsNoChinese).collect(Collectors.toList());
+    }
     if (size > res.size()) {
       throw new IllegalArgumentException();
     }
