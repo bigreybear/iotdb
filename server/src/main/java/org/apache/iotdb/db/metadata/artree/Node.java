@@ -30,6 +30,7 @@ public abstract class Node implements Serializable {
   static final int MAX_PREFIX_LEN = 128;
   public long offset = -1L;
   public int depth = 0;
+  public int descendentLeaf = 0;
 
   // region Mod Methods
 
@@ -74,6 +75,8 @@ public abstract class Node implements Serializable {
   }
 
   public abstract int getMaxDepth();
+
+  public abstract int computeDescentLeaf();
 
   // endregion
 

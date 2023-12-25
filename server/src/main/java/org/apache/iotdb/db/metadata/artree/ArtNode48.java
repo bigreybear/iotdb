@@ -71,6 +71,9 @@ class ArtNode48 extends ArtNode {
     node.add_child(null, (byte) 45, l);
     node.add_child(null, (byte) 67, l);
     node.add_child(null, (byte) 11, l);
+    node.add_child(null, (byte) 14, l);
+    node.add_child(null, (byte) 15, l);
+    node.add_child(null, (byte) 16, l);
 
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     ArtTree.serialize(node, baos);
@@ -81,6 +84,11 @@ class ArtNode48 extends ArtNode {
     buffer.position((int) ReadWriteIOUtils.readLong(buffer));
     Node node2 = ArtTree.deserialize(buffer);
     System.out.println(node2);
+
+    Iterator<Node> ite = node.getChildren();
+    while (ite.hasNext()) {
+      System.out.println(ite.next());
+    }
   }
 
   @Override
@@ -100,9 +108,11 @@ class ArtNode48 extends ArtNode {
 
       @Override
       public Node next() {
-        while (!valid(lastIndex++)) {}
+        while (!valid(lastIndex)) {
+          lastIndex++;
+        }
         i++;
-        return children[lastIndex++];
+        return childAt(lastIndex++);
       }
     };
   }

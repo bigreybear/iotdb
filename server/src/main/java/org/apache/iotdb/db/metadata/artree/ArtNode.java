@@ -58,6 +58,23 @@ public abstract class ArtNode extends Node {
   }
 
   @Override
+  public int computeDescentLeaf() {
+    if (num_children <= 0) {
+      return 0;
+    }
+
+    int[] res = new int[num_children];
+    Iterator<Node> node = this.getChildren();
+    int i = 0;
+    while (node.hasNext()) {
+      res[i++] = node.next().computeDescentLeaf();
+    }
+
+    this.descendentLeaf = Arrays.stream(res).sum();
+    return descendentLeaf;
+  }
+
+  @Override
   public void serialize(OutputStream out) throws IOException {
     ReadWriteIOUtils.write(getType(), out);
     if (getPartialLength() > 0) {

@@ -104,9 +104,11 @@ class ArtNode256 extends ArtNode {
 
       @Override
       public Node next() {
-        while (!valid(lastIndex++)) {}
+        while (!valid(lastIndex)) {
+          lastIndex++;
+        }
         i++;
-        return children[lastIndex++];
+        return childAt(lastIndex++);
       }
     };
   }

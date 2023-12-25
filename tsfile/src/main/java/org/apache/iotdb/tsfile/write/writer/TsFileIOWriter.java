@@ -72,7 +72,7 @@ import static org.apache.iotdb.tsfile.file.metadata.MetadataIndexConstructor.gen
  */
 public class TsFileIOWriter implements AutoCloseable {
 
-  public long metadataCost = 0L, mcp1 = 0L, mcp2 = 0L, mcp3 = 0L;
+  public long metadataCost = 0L, mcp1 = 0L, mcp2 = 0L, mcp3 = 0L, dataSize = 0L;
 
   protected static final byte[] MAGIC_STRING_BYTES;
   public static final byte VERSION_NUMBER_BYTE;
@@ -339,6 +339,7 @@ public class TsFileIOWriter implements AutoCloseable {
         BloomFilter.getEmptyBloomFilter(
             TSFileDescriptor.getInstance().getConfig().getBloomFilterErrorRate(), pathCount);
 
+    this.dataSize = out.getPosition();
     int indexCount = 0;
     // building timeseries metadata and chunk metadata list
     while (tsmIterator.hasNext()) {
@@ -355,7 +356,7 @@ public class TsFileIOWriter implements AutoCloseable {
       // construct the index tree node for the series
       currentDevice = currentPath.getDevice();
       if (!currentDevice.equals(prevDevice)) {
-        if (prevDevice != null) { // when dev changed and the previous existed, add it to map
+        if (prevDevice != null) { // NOTE when dev changed and the previous existed, add it to map
           addCurrentIndexNodeToQueue(currentIndexNode, measurementMetadataIndexQueue, out);
           long a = out.getPosition();
           deviceMetadataIndexMap.put(

@@ -28,10 +28,13 @@ import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.Iterator;
 
 public class ArtTree extends ChildPtr implements Serializable {
+
+  public ArtStatistic statistic = new ArtStatistic();
 
   public Node root = null;
   long num_elements = 0;
@@ -66,6 +69,8 @@ public class ArtTree extends ChildPtr implements Serializable {
     tree.root = r2;
     System.out.println(tree.totalNodes());
     System.out.println(tree.totalDepth());
+    tree.collectStatistics();
+    System.out.println("AAA");
   }
 
   // region Mod Methods
@@ -73,6 +78,55 @@ public class ArtTree extends ChildPtr implements Serializable {
   // region Utils
 
   // todo
+
+  public int computeDescendentLeaf() {
+    return this.root.computeDescentLeaf();
+  }
+
+  public void collectStatistics() {
+    computeDescendentLeaf();
+
+    Iterator<Node> ite;
+    Deque<Node> nodes = new ArrayDeque<>();
+    Node n;
+    ArtNode aNode;
+    String pk;
+    nodes.add(root);
+
+    Class[] nodeTypes = new Class[] {
+        Leaf.class,
+        ArtNode4.class,
+        ArtNode16.class,
+        ArtNode48.class,
+        ArtNode256.class
+    };
+
+    while (nodes.size() > 0) {
+      n = nodes.pop();
+      // type statistic and traverse
+      for (int i = 0; i < nodeTypes.length; i++) {
+        if (nodeTypes[i].isInstance(n)) {
+          this.statistic.nodeCount[i] ++;
+
+          if (i >= 1) {
+            ite = ((ArtNode)n).getChildren();
+            while (ite.hasNext()) {
+              nodes.add(ite.next());
+            }
+
+            aNode = (ArtNode) n;
+            if (aNode.partial_len > 0) {
+              pk = new String(Arrays.copyOfRange(aNode.partial, 0, aNode.partial_len));
+              statistic.partialKeyOccur.merge(pk, 1, Integer::sum);
+              statistic.partialKeyEffects.merge(pk, aNode.descendentLeaf, Integer::sum);
+            }
+          }
+          break;
+        }
+      }
+    }
+  }
+
 
   public int totalNodes() {
     Deque<Node> nodes = new ArrayDeque<>();

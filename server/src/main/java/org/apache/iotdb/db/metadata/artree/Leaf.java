@@ -57,6 +57,11 @@ class Leaf extends Node {
     return 1;
   }
 
+  @Override
+  public int computeDescentLeaf() {
+    return 1;
+  }
+
   // NOTE bytes of key belong to the leaf
   public int remain = 0;
 

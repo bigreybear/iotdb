@@ -35,7 +35,7 @@ public class CompareSize {
   private static final String FILE_PATH = "mtree_test".concat("_TsFileIOWriterTest.tsfile");
   private static final int[] SIZE_TEST_SCALE = {1000, 2000, 3000, 5000};
   private static int LARGEST_SCALE = SIZE_TEST_SCALE[SIZE_TEST_SCALE.length - 1];
-  private static final int TEST_RUN = 3; // for guarantee stability
+  private static final int TEST_RUN = 5; // for guarantee stability
 
   private static final Map<String, List<int[]>> dimsToResults = new HashMap<>();
 
@@ -47,35 +47,25 @@ public class CompareSize {
     for (int i = 0; i < TEST_RUN; i++) {
       System.out.println("Test Run:" + i);
 
-//      p = PathTextLoader.getAdjacentPaths(LARGEST_SCALE, true);
-//      standardCompareSize(p, "Adjacent With Chinese");
-//
-//      p = PathTextLoader.getAdjacentPaths(LARGEST_SCALE, false);
-//      standardCompareSize(p, "Adjacent Without Chinese");
-//
-//      p = PathTextLoader.getRandomPaths(LARGEST_SCALE, true);
-//      standardCompareSize(p, "Random With Chinese");
-//
-//      p = PathTextLoader.getRandomPaths(LARGEST_SCALE, false);
-//      standardCompareSize(p, "Random Without Chinese");
+    p = PathTextLoader.getAdjacentPaths(LARGEST_SCALE, true);
+    standardCompareSize(p, "Adjacent With Chinese");
+    p = adjustWithBaoWuModeling(p);
+    standardCompareSize(p, "Adjacent With Chinese, Adjusted");
 
-      p = PathTextLoader.getAdjacentPaths(LARGEST_SCALE, false);
-      System.out.println(analyzeDevices(p));
-      p = adjustWithBaoWuModeling(p);
-      System.out.println(analyzeDevices(p));
-//      standardCompareSize(p, "Adjacent Without Chinese, Adjusted");
+    p = PathTextLoader.getAdjacentPaths(LARGEST_SCALE, false);
+    standardCompareSize(p, "Adjacent Without Chinese");
+    p = adjustWithBaoWuModeling(p);
+    standardCompareSize(p, "Adjacent Without Chinese, Adjusted");
 
-//      p = PathTextLoader.getAdjacentPaths(LARGEST_SCALE, true);
-//      p = adjustWithBaoWuModeling(p);
-//      standardCompareSize(p, "Adjacent With Chinese, Adjusted");
-//
-//      p = PathTextLoader.getRandomPaths(LARGEST_SCALE, false);
-//      p = adjustWithBaoWuModeling(p);
-//      standardCompareSize(p, "Random Without Chinese, Adjusted");
-//
-//      p = PathTextLoader.getRandomPaths(LARGEST_SCALE, true);
-//      p = adjustWithBaoWuModeling(p);
-//      standardCompareSize(p, "Random With Chinese, Adjusted");
+     p = PathTextLoader.getRandomPaths(LARGEST_SCALE, true);
+     standardCompareSize(p, "Random With Chinese");
+     p = adjustWithBaoWuModeling(p);
+     standardCompareSize(p, "Random With Chinese, Adjusted");
+
+     p = PathTextLoader.getRandomPaths(LARGEST_SCALE, false);
+     standardCompareSize(p, "Random Without Chinese");
+     p = adjustWithBaoWuModeling(p);
+     standardCompareSize(p, "Random Without Chinese, Adjusted");
     }
     normalizeAndPrintResults();
 
@@ -156,7 +146,7 @@ public class CompareSize {
       paths = checkPrefix(paths);
       tsf[i] += testTsFile(paths);
       paths = alignPathsWithTsMeta(paths);
-      ori[i] = paths.stream().mapToInt(String::length).sum();
+      ori[i] += paths.stream().mapToInt(String::length).sum();
       art[i] += testARTFileSize(paths);
     }
   }
@@ -171,9 +161,9 @@ public class CompareSize {
 
       StringBuilder builder = new StringBuilder();
       builder.append(String.format("%s:\n", e.getKey()));
-      builder.append(String.format("ori: %s:\n", printArrayAsOneLine(e.getValue().get(0))));
-      builder.append(String.format("art: %s:\n", printArrayAsOneLine(e.getValue().get(1))));
-      builder.append(String.format("tsf: %s:\n", printArrayAsOneLine(e.getValue().get(2))));
+      builder.append(String.format("%s\n", printArrayAsOneLine(e.getValue().get(0))));
+      builder.append(String.format("%s\n", printArrayAsOneLine(e.getValue().get(1))));
+      builder.append(String.format("%s\n", printArrayAsOneLine(e.getValue().get(2))));
       System.out.println(builder);
     }
   }
@@ -304,6 +294,7 @@ public class CompareSize {
     }
 
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    tree.collectStatistics();
     return tree.serialize(baos);
 
     // ArtTree.calculateDepth(tree);

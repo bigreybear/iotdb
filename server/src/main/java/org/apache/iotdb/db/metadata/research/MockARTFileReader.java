@@ -1,5 +1,6 @@
 package org.apache.iotdb.db.metadata.research;
 
+import io.netty.buffer.ByteBuf;
 import org.apache.iotdb.db.metadata.artree.ArtTree;
 import org.apache.iotdb.tsfile.utils.ReadWriteForEncodingUtils;
 import org.apache.iotdb.tsfile.utils.ReadWriteIOUtils;
@@ -50,7 +51,7 @@ public class MockARTFileReader {
     reader.prepareFileWithPrefix(666, tree);
 
     for (Map.Entry<String, Long> entry : answers.entrySet()) {
-      if (reader.getValue(entry.getKey()) != entry.getValue()) {
+      if (reader.getValueByChannel(entry.getKey()) != entry.getValue()) {
         System.exit(-1);
       }
     }
@@ -137,6 +138,133 @@ public class MockARTFileReader {
     }
   }
 
+  public long getValueByChannel(String key) throws IOException {
+    if (channel == null) {
+      file = new File(FILE_PATH);
+      channel = FileChannel.open(file.toPath(), StandardOpenOption.READ);
+    }
+
+    ByteBuffer buf = ByteBuffer.allocate(64);
+    channel.read(buf, channel.size() - Long.BYTES);
+    buf.flip();
+    long nextPos = ReadWriteIOUtils.readLong(buf);
+    final byte[] keyBytes = key.getBytes();
+    byte[] partKeyBytes;
+    int idx = 0;
+    byte type;
+
+    channel.position(nextPos);
+    buf.clear();
+    channel.read(buf);
+    buf.flip();
+    type = ReadWriteIOUtils.readByte(buf);
+    while (type != 0) {
+      if (ReadWriteIOUtils.readBool(buf)) {
+        partKeyBytes = readVarBytes(channel, buf);
+      } else {
+        partKeyBytes = null;
+      }
+
+      if (partKeyBytes != null) {
+        for (int i = 0; i < partKeyBytes.length; i++) {
+          if (keyBytes[idx++] != partKeyBytes[i]) {
+            return -1;
+          }
+        }
+      }
+
+      nextPos = type == 4
+          ? readFor256(keyBytes[idx++], buf, channel)
+          : readForArtNode(keyBytes[idx++], buf, channel);
+
+      if (nextPos < 0) {
+        return nextPos;
+      }
+
+      channel.position(nextPos);
+      buf.clear();
+      channel.read(buf);
+      buf.flip();
+      type = readByte(buf, channel);
+    }
+
+    if (idx >= keyBytes.length) {
+      if (readVarBytes(channel, buf) == null) {
+        return readLong(buf, channel);
+      }
+      // input key not finished but leaf has no partial key
+      return -1L;
+    }
+
+    partKeyBytes = readVarBytes(channel, buf);
+    if (partKeyBytes != null) {
+      for (int i = 0; i < partKeyBytes.length; i++) {
+        if (keyBytes[idx++] != partKeyBytes[i]) {
+          return -1L;
+        }
+      }
+      return readLong(buf, channel);
+    } else {
+      return -1L;
+    }
+  }
+
+  private boolean readBool(ByteBuffer buffer, FileChannel channel) throws IOException {
+    if (buffer.remaining() < 1) {
+      buffer.clear();
+      channel.read(buffer);
+      buffer.flip();
+    }
+    return ReadWriteIOUtils.readBool(buffer);
+  }
+
+  private int readInt(ByteBuffer buffer, FileChannel channel) throws IOException {
+    if (buffer.remaining() < Integer.BYTES) {
+      buffer.clear();
+      channel.read(buffer);
+      buffer.flip();
+    }
+    return ReadWriteIOUtils.readInt(buffer);
+  }
+
+  private long readLong(ByteBuffer buffer, FileChannel channel) throws IOException {
+    if (buffer.remaining() < Long.BYTES) {
+      buffer.clear();
+      channel.read(buffer);
+      buffer.flip();
+    }
+    return ReadWriteIOUtils.readLong(buffer);
+  }
+
+  private byte readByte(ByteBuffer buffer, FileChannel channel) throws IOException {
+    if (buffer.remaining() < Byte.BYTES) {
+      buffer.clear();
+      channel.read(buffer);
+      buffer.flip();
+    }
+    return ReadWriteIOUtils.readByte(buffer);
+  }
+
+  private long readForArtNode(byte tar, ByteBuffer buffer, FileChannel channel) throws IOException {
+    int children_cnt = readInt(buffer, channel);
+    while (children_cnt-- > 0) {
+      if (readByte(buffer, channel) == tar) {
+        return readLong(buffer, channel);
+      }
+      readLong(buffer, channel);
+    }
+    return -1L;
+  }
+
+  private long readFor256(byte tar, ByteBuffer buffer, FileChannel channel) throws IOException {
+    int num = to_uint(tar);
+    long res = readLong(buffer, channel);
+    while (num-- >= 0) {
+      res = readLong(buffer, channel);
+    }
+    return res;
+  }
+
   private long readForArtNodes(byte tar) {
     int children_cnt = ReadWriteIOUtils.readInt(buffer);
     while (children_cnt-- > 0) {
@@ -172,6 +300,44 @@ public class MockARTFileReader {
     byte[] bytes = new byte[strLength];
     buffer.get(bytes, 0, strLength);
     return bytes;
+  }
+
+  public static byte[] readVarBytes(FileChannel channel, ByteBuffer buffer) throws IOException {
+    if (buffer.remaining() < 8) {
+      // assure enough to read length
+      buffer.compact();
+      channel.read(buffer);
+      buffer.asFloatBuffer();
+    }
+
+    int strLength = ReadWriteForEncodingUtils.readVarInt(buffer);
+    if (strLength <= 0) {
+      return null;
+    }
+
+    // the worst implementation, a better one to instantiate a fit ByteBuffer
+    byte[] bytes = new byte[strLength];
+    if (strLength <= buffer.remaining()) {
+      buffer.get(bytes, 0, strLength);
+      return bytes;
+    }
+
+    // put all bytes into res, read as expected
+    buffer.get(bytes, 0, buffer.remaining());
+    int acc = buffer.remaining();
+    while (acc < strLength) {
+      buffer.clear();
+      channel.read(buffer);
+      if (acc + buffer.remaining() < strLength) {
+        // not enough in this run
+        buffer.get(bytes, acc, buffer.remaining());
+        acc += buffer.remaining();
+      } else {
+        buffer.get(bytes, acc, strLength - acc);
+        return bytes;
+      }
+    }
+    return null;
   }
 
   private ByteBuffer getReadOnlyBuffer() throws IOException {
