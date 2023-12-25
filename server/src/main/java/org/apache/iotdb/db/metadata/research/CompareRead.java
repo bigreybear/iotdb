@@ -27,7 +27,7 @@ public class CompareRead {
   public static void main(String[] args) throws Exception {
     long res1 = 0L, res2 = 0L;
 
-    List<String> p = PathTextLoader.getAdjacentPaths(50000, false);
+    List<String> p = PathTextLoader.getAdjacentPaths(20000, false);
     // prepare files
     int base = prepareTsFile(p);
     p = PathHandler.alignPathsWithTsMeta(p);
@@ -60,7 +60,7 @@ public class CompareRead {
     res2 = System.currentTimeMillis();
     res.clear();
     for (int i = 0; i < newPath.size(); i++) {
-      res.add(mart.getValue(newPath.get(i)));
+      res.add(mart.getValueByChannel(newPath.get(i)));
     }
     res2 = System.currentTimeMillis() - res2;
 

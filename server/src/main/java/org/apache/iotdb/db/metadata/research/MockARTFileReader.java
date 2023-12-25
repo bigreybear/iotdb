@@ -177,6 +177,11 @@ public class MockARTFileReader {
           ? readFor256(keyBytes[idx++], buf, channel)
           : readForArtNode(keyBytes[idx++], buf, channel);
 
+
+      if (nextPos > channel.size()) {
+        System.out.println("WRONG");
+      }
+
       if (nextPos < 0) {
         return nextPos;
       }
@@ -211,7 +216,7 @@ public class MockARTFileReader {
 
   private boolean readBool(ByteBuffer buffer, FileChannel channel) throws IOException {
     if (buffer.remaining() < 1) {
-      buffer.clear();
+      buffer.compact();
       channel.read(buffer);
       buffer.flip();
     }
@@ -220,7 +225,7 @@ public class MockARTFileReader {
 
   private int readInt(ByteBuffer buffer, FileChannel channel) throws IOException {
     if (buffer.remaining() < Integer.BYTES) {
-      buffer.clear();
+      buffer.compact();
       channel.read(buffer);
       buffer.flip();
     }
@@ -229,7 +234,7 @@ public class MockARTFileReader {
 
   private long readLong(ByteBuffer buffer, FileChannel channel) throws IOException {
     if (buffer.remaining() < Long.BYTES) {
-      buffer.clear();
+      buffer.compact();
       channel.read(buffer);
       buffer.flip();
     }
@@ -238,7 +243,7 @@ public class MockARTFileReader {
 
   private byte readByte(ByteBuffer buffer, FileChannel channel) throws IOException {
     if (buffer.remaining() < Byte.BYTES) {
-      buffer.clear();
+      buffer.compact();
       channel.read(buffer);
       buffer.flip();
     }
@@ -307,7 +312,7 @@ public class MockARTFileReader {
       // assure enough to read length
       buffer.compact();
       channel.read(buffer);
-      buffer.asFloatBuffer();
+      buffer.flip();
     }
 
     int strLength = ReadWriteForEncodingUtils.readVarInt(buffer);
@@ -323,11 +328,12 @@ public class MockARTFileReader {
     }
 
     // put all bytes into res, read as expected
-    buffer.get(bytes, 0, buffer.remaining());
     int acc = buffer.remaining();
+    buffer.get(bytes, 0, buffer.remaining());
     while (acc < strLength) {
       buffer.clear();
       channel.read(buffer);
+      buffer.flip();
       if (acc + buffer.remaining() < strLength) {
         // not enough in this run
         buffer.get(bytes, acc, buffer.remaining());
