@@ -27,11 +27,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -52,8 +49,8 @@ public class SchemaPageLockManagerTest {
   @Test
   public void testConcurrentAccess() throws InterruptedException {
     int[] sharedData = new int[200];
+    int[] res = new int[200];
     int[] targetIndex = new int[4000];
-    int[] res = new int[4000];
     List<Future<?>> futures = new ArrayList<>();
 
     Random random = new Random(System.currentTimeMillis());
@@ -65,6 +62,7 @@ public class SchemaPageLockManagerTest {
     final PageLockManager lockManager = new PageLockManager(32, 10, 32);
     ExecutorService incrementExecutors = Executors.newFixedThreadPool(numberOfThreads);
     ExecutorService decrementExecutors = Executors.newFixedThreadPool(numberOfThreads);
+    ExecutorService tryIncrementExecutor = Executors.newFixedThreadPool(numberOfThreads);
     ExecutorService readExecutors = Executors.newFixedThreadPool(numberOfThreads);
 
     for (int i = 0; i < targetIndex.length; i++) {
@@ -101,13 +99,27 @@ public class SchemaPageLockManagerTest {
                 int target = targetIndex[finalI];
                 lockManager.lockReadLock(target);
                 try {
-                  res[finalI] = sharedData[target];
+                  int j = sharedData[target];
                   Thread.yield();
                 } finally {
                   lockManager.unlockReadLock(target);
                 }
               });
       futures.add(future);
+      futures.add(
+          tryIncrementExecutor.submit(
+              () -> {
+                int target = targetIndex[finalI];
+                if (lockManager.tryWriteLock(target)) {
+                  try {
+                    sharedData[target] += target;
+                    res[target] += target;
+                    Thread.yield();
+                  } finally {
+                    lockManager.unlockWriteLock(target);
+                  }
+                }
+              }));
     }
 
     for (Future<?> future : futures) {
@@ -129,7 +141,7 @@ public class SchemaPageLockManagerTest {
     decrementExecutors.awaitTermination(5, TimeUnit.SECONDS);
 
     for (int i = 0; i < sharedData.length; i++) {
-      Assert.assertEquals(sharedData[i], 0);
+      Assert.assertEquals(sharedData[i], res[i]);
     }
   }
 }
