@@ -81,7 +81,7 @@ public class PageLockManager {
   }
 
   public boolean tryWriteLock(int index) {
-    LockEntry entry = getWorkingOrSpareEntry(index);
+    LockEntry entry = getEntry(index);
     if (!entry.lock.writeLock().tryLock()) {
       // lock is not used actually thus decrement the count
       entry.refCnt.decrementAndGet();
@@ -93,13 +93,13 @@ public class PageLockManager {
 
   public void lockWriteLock(int index) {
     suspectedIdleEntry.remove(index);
-    LockEntry entry = getOrCreateEntry(index);
+    LockEntry entry = getEntry(index);
     entry.lock.writeLock().lock();
   }
 
   public void lockReadLock(int index) {
     suspectedIdleEntry.remove(index);
-    LockEntry entry = getOrCreateEntry(index);
+    LockEntry entry = getEntry(index);
     entry.lock.readLock().lock();
   }
 
@@ -120,9 +120,9 @@ public class PageLockManager {
     }
   }
 
-  private LockEntry getOrCreateEntry(int index) {
+  private LockEntry getEntry(int index) {
     LockEntry entry = getWorkingOrSpareEntry(index);
-    return entry != null ? entry : recycleIdleOrCreateEntries(index);
+    return entry != null ? entry : recycleOrCreateEntries(index);
   }
 
   private LockEntry getWorkingOrSpareEntry(int index) {
@@ -139,7 +139,7 @@ public class PageLockManager {
         });
   }
 
-  private LockEntry recycleIdleOrCreateEntries(int index) {
+  private LockEntry recycleOrCreateEntries(int index) {
     LockEntry entry;
     // todo concurrent recycling might be explored further
     while (!recyclingIdleEntries.compareAndSet(false, true)) {
