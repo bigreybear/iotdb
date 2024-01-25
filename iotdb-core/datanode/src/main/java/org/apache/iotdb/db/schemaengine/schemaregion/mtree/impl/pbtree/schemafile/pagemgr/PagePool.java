@@ -95,6 +95,7 @@ public class PagePool {
     pageInstCache.put(page.getPageIndex(), page);
   }
 
+  // TODO add finer-grain lock, but not CAS
   public void lock() {
     cacheLock.lock();
   }
