@@ -61,6 +61,7 @@ public abstract class PageManager implements IPageManager {
 
   protected final PagePool pagePool;
   protected final PageIOChannel pageIOChannel;
+  protected final PageLockManager lockManager;
 
   protected final Map<Long, SchemaPageContext> threadContexts;
 
@@ -71,6 +72,7 @@ public abstract class PageManager implements IPageManager {
   PageManager(FileChannel channel, File pmtFile, int lastPageIndex, String logPath)
       throws IOException, MetadataException {
     this.pagePool = new PagePool();
+    this.lockManager = new PageLockManager();
     this.threadContexts = new ConcurrentHashMap<>();
     this.lastPageIndex =
         lastPageIndex >= 0 ? new AtomicInteger(lastPageIndex) : new AtomicInteger(0);
