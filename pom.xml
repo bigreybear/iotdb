@@ -196,6 +196,13 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
+                <groupId>org.apache.tsfile</groupId>
+                <artifactId>tsfile</artifactId>
+                <version>1.0.1-SNAPSHOT</version>
+                <scope>system</scope>
+                <systemPath>F:\0006DataSets\0000JarLib\tsfile-1.0.1-SNAPSHOT-jar-with-dependencies.jar</systemPath>
+            </dependency>
+            <dependency>
                 <groupId>io.netty</groupId>
                 <artifactId>netty-bom</artifactId>
                 <version>${netty.version}</version>

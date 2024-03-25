@@ -75,7 +75,7 @@ public class FastCompactionPerformer
 
   private Map<TsFileResource, TsFileSequenceReader> readerCacheMap = new ConcurrentHashMap<>();
 
-  private FastCompactionTaskSummary subTaskSummary;
+  public FastCompactionTaskSummary subTaskSummary;
 
   private List<TsFileResource> targetFiles;
 
@@ -111,7 +111,11 @@ public class FastCompactionPerformer
             isCrossCompaction
                 ? new FastCrossCompactionWriter(targetFiles, seqFiles, readerCacheMap)
                 : new FastInnerCompactionWriter(targetFiles.get(0))) {
+      int cnt = 0;
       while (deviceIterator.hasNextDevice()) {
+        // if (cnt % 256 == 0) {
+        //   System.out.println("Finish devices:" + cnt);
+        // }
         checkThreadInterrupted();
         Pair<String, Boolean> deviceInfo = deviceIterator.nextDevice();
         String device = deviceInfo.left;
@@ -139,6 +143,7 @@ public class FastCompactionPerformer
         // Add temp file metrics
         subTaskSummary.setTemporalFileSize(compactionWriter.getWriterSize());
         sortedSourceFiles.clear();
+        cnt++;
       }
       compactionWriter.endFile();
       CompactionUtils.updatePlanIndexes(targetFiles, seqFiles, unseqFiles);

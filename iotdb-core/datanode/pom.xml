@@ -35,6 +35,12 @@
     </properties>
     <dependencies>
         <dependency>
+            <groupId>org.apache.tsfile</groupId>
+            <artifactId>tsfile</artifactId>
+            <scope>system</scope>
+            <systemPath>F:\0006DataSets\0000JarLib\tsfile-1.0.1-SNAPSHOT-jar-with-dependencies.jar</systemPath>
+        </dependency>
+        <dependency>
             <groupId>org.apache.iotdb</groupId>
             <artifactId>service-rpc</artifactId>
             <version>1.3.1-SNAPSHOT</version>
@@ -561,6 +567,33 @@
                 <iotdb.test.skip>false</iotdb.test.skip>
                 <iotdb.ut.skip>false</iotdb.ut.skip>
             </properties>
+        </profile>
+        <profile>
+            <id>get-jar-with-dependencies</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-assembly-plugin</artifactId>
+                        <configuration>
+                            <descriptorRefs>
+                                <descriptorRef>jar-with-dependencies</descriptorRef>
+                            </descriptorRefs>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>make-assembly</id>
+                                <!-- bind to the packaging phase -->
+                                <goals>
+                                    <goal>single</goal>
+                                </goals>
+                                <!-- this is used for inheritance merges -->
+                                <phase>package</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
     </profiles>
 </project>

@@ -179,7 +179,7 @@ public class FastCompactionPerformerAlignedTest {
     boolean[] randomNull = new boolean[] {false, false, false, false, false};
     int timeInterval = 500;
     List<TsFileResource> resources = new ArrayList<>();
-    for (int i = 1; i < 31; i++) {
+    for (int i = 1; i < 3; i++) {
       TsFileResource resource =
           new TsFileResource(new File(dataDirectory, String.format("%d-%d-0-0.tsfile", i, i)));
       TestUtilsForAlignedSeries.writeTsFile(

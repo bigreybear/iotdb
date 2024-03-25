@@ -172,23 +172,24 @@ public class FastInnerCompactionWriter extends AbstractInnerCompactionWriter {
   }
 
   private boolean checkIsAlignedChunkLargeEnough(Chunk timeChunk, List<Chunk> valueChunks) {
-    if (checkIsChunkLargeEnough(timeChunk)) {
-      return true;
-    }
-    for (Chunk valueChunk : valueChunks) {
-      if (valueChunk == null) {
-        continue;
-      }
-      if (checkIsChunkLargeEnough(valueChunk)) {
-        return true;
-      }
-    }
-    return false;
+    // if (checkIsChunkLargeEnough(timeChunk)) {
+    //   return true;
+    // }
+    // for (Chunk valueChunk : valueChunks) {
+    //   if (valueChunk == null) {
+    //     continue;
+    //   }
+    //   if (checkIsChunkLargeEnough(valueChunk)) {
+    //     return true;
+    //   }
+    // }
+    return true;
   }
 
   private boolean checkIsChunkLargeEnough(Chunk chunk) {
-    return chunk.getChunkStatistic().getCount() >= targetChunkPointNum
-        || getChunkSize(chunk) >= targetChunkSize;
+    // return chunk.getChunkStatistic().getCount() >= targetChunkPointNum
+    //     || getChunkSize(chunk) >= targetChunkSize;
+    return true;
   }
 
   private boolean checkIsAlignedPageLargeEnough(
