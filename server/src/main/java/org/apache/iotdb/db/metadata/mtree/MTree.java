@@ -152,7 +152,7 @@ public class MTree implements Serializable {
   public static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
   private static final long serialVersionUID = -4200394435237291964L;
   private static final Logger logger = LoggerFactory.getLogger(MTree.class);
-  private IMNode root;
+  public IMNode root;
 
   private String mtreeSnapshotPath;
   private String mtreeSnapshotTmpPath;
@@ -601,7 +601,7 @@ public class MTree implements Serializable {
     }
     MetaFormatUtils.checkTimeseries(devicePath);
     IMNode cur = root;
-    boolean hasSetStorageGroup = false;
+    boolean hasSetStorageGroup = true;
     Template upperTemplate = cur.getSchemaTemplate();
     // e.g, path = root.sg.d1.s1,  create internal nodes and set cur to d1 node
     for (int i = 1; i < nodeNames.length - 1; i++) {

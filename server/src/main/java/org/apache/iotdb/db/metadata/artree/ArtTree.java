@@ -19,6 +19,7 @@
 package org.apache.iotdb.db.metadata.artree;
 
 import org.apache.iotdb.db.metadata.research.MockARTFileOutputStream;
+import org.apache.iotdb.db.metadata.research.basic.BoxPlotData;
 import org.apache.iotdb.tsfile.utils.Pair;
 import org.apache.iotdb.tsfile.utils.ReadWriteIOUtils;
 
@@ -28,9 +29,12 @@ import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Deque;
 import java.util.Iterator;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class ArtTree extends ChildPtr implements Serializable {
 
@@ -101,6 +105,11 @@ public class ArtTree extends ChildPtr implements Serializable {
         ArtNode256.class
     };
 
+    List<Float>[] typePlenitude = new List[5];
+    for (int i = 0; i < 5; i++) {
+      typePlenitude[i] = new ArrayList<>();
+    }
+
     while (nodes.size() > 0) {
       n = nodes.pop();
       // type statistic and traverse
@@ -110,9 +119,12 @@ public class ArtTree extends ChildPtr implements Serializable {
 
           if (i >= 1) {
             ite = ((ArtNode)n).getChildren();
+            int j = 0;
             while (ite.hasNext()) {
               nodes.add(ite.next());
+              j++;
             }
+            typePlenitude[i].add(j*1F);
 
             aNode = (ArtNode) n;
             if (aNode.partial_len > 0) {
@@ -124,6 +136,13 @@ public class ArtTree extends ChildPtr implements Serializable {
           break;
         }
       }
+    }
+
+    int[] divs = {0, 4, 16, 48, 256};
+    for (int i = 1; i < 5; i++) {
+      int finalI = i;
+      statistic.plenitude[i] = typePlenitude[i].stream().map(e -> e/divs[finalI]).collect(Collectors.toList());
+      statistic.boxPlotData.add(BoxPlotData.calculateBoxPlotData(statistic.plenitude[i]));
     }
   }
 

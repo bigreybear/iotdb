@@ -89,6 +89,7 @@ public class LocalTsFileOutput extends OutputStream implements TsFileOutput {
   @Override
   public void flush() throws IOException {
     this.bufferedStream.flush();
+    outputStream.getFD().sync();
   }
 
   @Override

@@ -24,7 +24,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
-class Leaf extends Node {
+public class Leaf extends Node {
   public static int count;
   Object value;
   byte[] key;

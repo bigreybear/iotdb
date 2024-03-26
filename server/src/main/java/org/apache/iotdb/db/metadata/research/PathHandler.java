@@ -12,16 +12,67 @@ import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 public class PathHandler {
+  public static List<String> alignPathsWithTsMetaForRead(List<String> oriPaths) {
+    // device -> measurements
+    Map<String, TreeSet<String>> m1 = new TreeMap<>();
+    PartialPath pp;
+    for (String p : oriPaths) {
+      // try {
+      //   pp = new PartialPath(p);
+      //   m1.computeIfAbsent(pp.getDevice(), k -> new TreeSet<>()).add(pp.getMeasurement());
+      // } catch (Exception e) {
+      // }
+      m1.put(p, new TreeSet<>());
+      for (String sensor : CompareReadForPaper.DATA_SETS.sensors) {
+        m1.get(p).add(sensor);
+      }
+    }
+
+    Iterator<String> ite;
+    int cnt, removeCnt = 0;
+    List<String> res = new ArrayList<>();
+    // filter 1/256 measurements per device
+    for (String device : m1.keySet()) {
+      ite = m1.get(device).iterator();
+      cnt = 0;
+      while (ite.hasNext()) {
+        ite.next();
+        if (cnt % 256 != 0) {
+          ite.remove();
+          removeCnt++;
+        }
+        cnt++;
+      }
+
+      ite = m1.get(device).iterator();
+      while (ite.hasNext()) {
+        res.add(device + "." + ite.next());
+      }
+    }
+
+    if (removeCnt != 0) {
+      System.out.println(
+          String.format(
+              "Remove %d series among %d devices as only 1/256 measurements per device could be stored.",
+              removeCnt, m1.size()));
+    }
+    return res;
+  }
+
   // align paths to compare fairly, since TsFile only stores 1/256 sensors per device
   public static List<String> alignPathsWithTsMeta(List<String> oriPaths) {
     // device -> measurements
     Map<String, TreeSet<String>> m1 = new TreeMap<>();
     PartialPath pp;
     for (String p : oriPaths) {
-      try {
-        pp = new PartialPath(p);
-        m1.computeIfAbsent(pp.getDevice(), k -> new TreeSet<>()).add(pp.getMeasurement());
-      } catch (Exception e) {
+      // try {
+      //   pp = new PartialPath(p);
+      //   m1.computeIfAbsent(pp.getDevice(), k -> new TreeSet<>()).add(pp.getMeasurement());
+      // } catch (Exception e) {
+      // }
+      m1.put(p, new TreeSet<>());
+      for (String sensor : CompareSizeAndSpeed.DATA_SET.sensors) {
+        m1.get(p).add(sensor);
       }
     }
 

@@ -1,15 +1,20 @@
 package org.apache.iotdb.db.metadata.research;
 
+import org.apache.iotdb.db.bmtool.DataSets;
+import org.apache.iotdb.db.bmtool.GeoLifeLoader;
+import org.apache.iotdb.db.bmtool.REDDLoader;
+import org.apache.iotdb.db.bmtool.TDriveLoader;
+import org.apache.iotdb.db.bmtool.TSBSLoader;
 import org.apache.iotdb.db.exception.metadata.IllegalPathException;
 import org.apache.iotdb.db.metadata.artree.ArtTree;
 import org.apache.iotdb.db.metadata.path.PartialPath;
+import org.apache.iotdb.tsfile.common.conf.TSFileConfig;
 import org.apache.iotdb.tsfile.file.metadata.enums.TSDataType;
 import org.apache.iotdb.tsfile.file.metadata.enums.TSEncoding;
 import org.apache.iotdb.tsfile.file.metadata.statistics.Statistics;
 import org.apache.iotdb.tsfile.read.TsFileSequenceReader;
 import org.apache.iotdb.tsfile.write.schema.MeasurementSchema;
 import org.apache.iotdb.tsfile.write.writer.TsFileIOWriter;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,17 +35,18 @@ import java.util.stream.Collectors;
 
 import static org.apache.iotdb.db.metadata.research.PathHandler.*;
 
-public class CompareSize {
+public class CompareSizeAndSpeed {
   public static final int DATASET_SIZE = 400000;
+  public static DataSets DATA_SET = DataSets.GeoLife ;
 
-  private static final String FILE_PATH = "mtree_test".concat("_TsFileIOWriterTest.tsfile");
+  private static final String FILE_PATH = "tsfile".concat(DATA_SET.toString()).concat("_TsFileIOWriterTest.tsfile");
   private static final int[] SIZE_TEST_SCALE = {2000, 10000, 50000, 250000};
   private static int LARGEST_SCALE = SIZE_TEST_SCALE[SIZE_TEST_SCALE.length - 1];
   private static final int TEST_RUN = 1; // for guarantee stability
 
   private static final Map<String, List<int[]>> dimsToResults = new HashMap<>();
 
-  private static final Logger logger = LoggerFactory.getLogger(CompareSize.class);
+  private static final Logger logger = LoggerFactory.getLogger(CompareSizeAndSpeed.class);
 
   public static void main2(String[] args) throws Exception {
     List<String> p;
@@ -51,33 +57,19 @@ public class CompareSize {
 
   public static void main(String[] args) throws IOException, IllegalPathException {
 
-    List<String> p;
+    List<String> p = getDevsFromArrow(DATA_SET);
     for (int i = 0; i < TEST_RUN; i++) {
       System.out.println("Test Run:" + i);
 
-    // p = PathTextLoader.getAdjacentPaths(LARGEST_SCALE, true);
-    // standardCompareSize(p, "Adjacent With Chinese");
-    // p = adjustWithBaoWuModeling(p);
-    // standardCompareSize(p, "Adjacent With Chinese, Adjusted");
-
-    // p = PathTextLoader.getAdjacentPaths(LARGEST_SCALE, false);
-    // standardCompareSize(p, "Adjacent Without Chinese");
-    // p = adjustWithBaoWuModeling(p);
-    // standardCompareSize(p, "Adjacent Without Chinese, Adjusted");
-
-    //  p = PathTextLoader.getRandomPaths(LARGEST_SCALE, true);
-    //  standardCompareSize(p, "Random With Chinese");
-    //  p = adjustWithBaoWuModeling(p);
-    //  standardCompareSize(p, "Random With Chinese, Adjusted");
-
-     p = PathTextLoader.getRandomPaths(LARGEST_SCALE, false);
-     standardCompareSize(p, "Random Without Chinese");
-     // p = adjustWithBaoWuModeling(p);
-     // standardCompareSize(p, "Random Without Chinese, Adjusted");
+      compareSizeAndThroughput(p);
+      // p = PathTextLoader.getRandomPaths(LARGEST_SCALE, false);
+      // standardCompareSize(p, "Size and Throughput");
+      // p = adjustWithBaoWuModeling(p);
+      // standardCompareSize(p, "Random Without Chinese, Adjusted");
     }
-    normalizeAndPrintResults();
+    // normalizeAndPrintResults();
 
-//    compareWithFileSize(false);
+    // compareWithFileSize(false);
     // compareWithFileSize(true);
     // int totalLength;
     // int testSize = 2000;
@@ -89,8 +81,8 @@ public class CompareSize {
     // List<String> paths = PathTextLoader.getAdjacentPathsWithoutChinese(randomStart, testSize);
     // totalLength = paths.stream().mapToInt(String::length).sum();
     // System.out.printf("Total length of original paths:%d%n", totalLength);
-    // testARTFileSize(paths);
-    // long tsfile = testTsFile(paths);
+    // testARTFileSize(p);
+    // long tsfile = testTsFile(p);
     // System.out.println(String.format("Cost %d bytes with %d paths with TsFile", tsfile,
     // paths.size()));
     //
@@ -104,6 +96,65 @@ public class CompareSize {
     // tsfile = testTsFile(paths);
     // System.out.println(String.format("Cost %d bytes with %d paths with TsFile", tsfile,
     // paths.size()));
+  }
+
+  private static List<String> fromTDrive() throws IOException {
+    TDriveLoader loader = TDriveLoader.deserialize(DataSets.TDrive.getArrowFile());
+    TreeSet<String> devs = new TreeSet<>();
+    String dev;
+    for (int i = 0; i < loader.idVector.getValueCount(); i++) {
+      dev = new String(loader.idVector.get(i), TSFileConfig.STRING_CHARSET);
+      devs.add(dev);
+    }
+    return new ArrayList<>(devs);
+  }
+
+  private static List<String> fromREDD() throws IOException {
+    REDDLoader loader = REDDLoader.deserialize(DataSets.REDD.getArrowFile());
+    TreeSet<String> devs = new TreeSet<>();
+    String dev;
+    for (int i = 0; i < loader.idVector.getValueCount(); i++) {
+      dev = new String(loader.idVector.get(i), TSFileConfig.STRING_CHARSET);
+      devs.add(dev);
+    }
+    return new ArrayList<>(devs);
+  }
+
+  private static List<String> fromGeoLife() throws IOException {
+    GeoLifeLoader loader = GeoLifeLoader.deserialize(DataSets.GeoLife.getArrowFile());
+    TreeSet<String> devs = new TreeSet<>();
+    String dev;
+    for (int i = 0; i < loader.idVector.getValueCount(); i++) {
+      dev = new String(loader.idVector.get(i), TSFileConfig.STRING_CHARSET);
+      devs.add(dev);
+    }
+    return new ArrayList<>(devs);
+  }
+
+  private static List<String> fromTSBS() throws IOException {
+    TSBSLoader loader = TSBSLoader.deserialize(DataSets.TSBS.getArrowFile());
+    TreeSet<String> devs = new TreeSet<>();
+    String dev;
+    for (int i = 0; i < loader.idVector.getValueCount(); i++) {
+      dev = new String(loader.idVector.get(i), TSFileConfig.STRING_CHARSET);
+      devs.add(dev);
+    }
+    return new ArrayList<>(devs);
+  }
+
+  public static List<String> getDevsFromArrow(DataSets dataSets) throws IOException {
+    switch (dataSets) {
+      case TDrive:
+        return fromTDrive();
+      case GeoLife:
+        return fromGeoLife();
+      case REDD:
+        return fromREDD();
+      case TSBS:
+        return fromTSBS();
+      default:
+        return null;
+    }
   }
 
   /**
@@ -159,6 +210,12 @@ public class CompareSize {
       ori[i] += paths.stream().mapToInt(String::length).sum();
       art[i] += testARTFileSize(paths);
     }
+  }
+
+  public static void compareSizeAndThroughput(List<String> paths) throws IllegalPathException, IOException {
+    testTsFile(paths);
+    paths = alignPathsWithTsMeta(paths);
+    testARTFileSize(paths);
   }
 
   public static void testTsFileComponentWithBaowuPaths(List<String> naivePaths) throws Exception{
@@ -307,9 +364,12 @@ public class CompareSize {
 
   // region Compare Body
 
+  static long timeForART;
+
   public static int testARTFileSize(List<String> paths) throws IOException {
     ArtTree tree = new ArtTree();
     Map<String, Long> answerCheck = new HashMap<>();
+
     for (int i = 0; i < paths.size(); i++) {
       tree.insert(paths.get(i).getBytes(), (long) i);
       // answerCheck.put(paths.get(i), (long) i);
@@ -317,9 +377,17 @@ public class CompareSize {
 
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     tree.collectStatistics();
+
+    timeForART = System.nanoTime();
     System.out.println(String.format("Total Valid Nodes: %d", Arrays.stream(tree.statistic.nodeCount).sum()));
     System.out.println("node type count:" + printArrayAsOneLine(tree.statistic.nodeCount));
-    return tree.serialize(baos);
+    int size = tree.serialize(baos);
+    timeForART = System.nanoTime() - timeForART;
+    timeForART = timeForART / 1000000;
+
+    System.out.println(String.format("ART for %s, time: %d, size: %d",
+        DATA_SET, timeForART, size));
+    return size;
 
     // ArtTree.calculateDepth(tree);
     // serialize(((ArtNode)tree.root), baos);
@@ -337,15 +405,17 @@ public class CompareSize {
     Map<String, Set<MeasurementSchema>> devAndSensirs = new HashMap<>();
 
     // parse paths
-    PartialPath pp;
     for (String path : paths) {
-      pp = new PartialPath(path);
-      if (!devAndSensirs.containsKey(pp.getDevice())) {
-        devAndSensirs.put(pp.getDevice(), new HashSet<>());
+      // pp = new PartialPath(path);
+      if (!devAndSensirs.containsKey(path)) {
+        devAndSensirs.put(path, new HashSet<>());
       }
-      devAndSensirs
-          .get(pp.getDevice())
-          .add(new MeasurementSchema(pp.getMeasurement(), TSDataType.INT64, TSEncoding.RLE));
+
+      for (String sensor : DATA_SET.sensors) {
+        devAndSensirs
+            .get(path)
+            .add(new MeasurementSchema(sensor, TSDataType.INT64, TSEncoding.RLE));
+      }
     }
 
     File f1 = new File(FILE_PATH);
@@ -366,6 +436,9 @@ public class CompareSize {
     System.out.println(String.format("Paths Analyze: (Devs, Meas): (%d, %d)",
         reader.getAllDevices().size(), reader.getAllPaths().size()));
     reader.close();
+
+    System.out.println(String.format("TsFile for %s, time: %d, size: %d",
+        DATA_SET, TsFileIOWriter.timeForSI, TsFileIOWriter.sizeForSI));
 
     return (int) writer.metadataCost;
   }

@@ -123,6 +123,11 @@ public class TsFileSequenceReader implements AutoCloseable {
     this(file, true);
   }
 
+  public void reportComponents() throws Exception{
+    System.out.println(String.format("Paths Analyze: (Devs, Meas): (%d, %d)",
+        getAllDevices().size(), getAllPaths().size()));
+  }
+
   /**
    * construct function for TsFileSequenceReader.
    *
@@ -131,7 +136,7 @@ public class TsFileSequenceReader implements AutoCloseable {
    */
   public TsFileSequenceReader(String file, boolean loadMetadataSize) throws IOException {
     if (resourceLogger.isDebugEnabled()) {
-      resourceLogger.debug("{} reader is opened. {}", file, getClass().getName());
+      // resourceLogger.debug("{} reader is opened. {}", file, getClass().getName());
     }
     this.file = file;
     tsFileInput = FSFactoryProducer.getFileInputFactory().getTsFileInput(file);
@@ -1246,7 +1251,7 @@ public class TsFileSequenceReader implements AutoCloseable {
   @Override
   public void close() throws IOException {
     if (resourceLogger.isDebugEnabled()) {
-      resourceLogger.debug("{} reader is closed.", file);
+      // resourceLogger.debug("{} reader is closed.", file);
     }
     this.tsFileInput.close();
   }

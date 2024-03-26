@@ -1,5 +1,7 @@
 package org.apache.iotdb.db.metadata.research;
 
+import org.apache.iotdb.db.bmtool.DataSets;
+import org.apache.iotdb.db.bmtool.GeoLifeLoader;
 import org.apache.iotdb.db.exception.metadata.IllegalPathException;
 import org.apache.iotdb.db.metadata.artree.ArtTree;
 import org.apache.iotdb.db.metadata.path.PartialPath;
@@ -14,17 +16,67 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class CompareRead {
+public class CompareReadForPaper {
   private static final String FILE_PATH = "mtree_test".concat("_TsFileIOWriterTest.tsfile");
 
-  public static void main(String[] args) throws Exception {
+  public static DataSets DATA_SETS = DataSets.REDD;
+
+  public static void main(String[] args) throws IOException, IllegalPathException {
+    // for paper
+    long res1, res2;
+    List<String> devs = CompareSizeAndSpeed.getDevsFromArrow(DATA_SETS);
+    int base = prepareTsFile(devs);
+    devs = PathHandler.alignPathsWithTsMetaForRead(devs);
+    ArtTree tree = prepareARTFile(devs);
+    MockARTFileReader mart = new MockARTFileReader(base, tree);
+    TsFileSequenceReader reader = new TsFileSequenceReader(FILE_PATH);
+
+    List<String> qdevs = new ArrayList<>();
+    List<String> qmeas = new ArrayList<>();
+    List<String> qnewPath = new ArrayList<>();
+
+    for (String path : devs) {
+      try{
+        PartialPath pp = new PartialPath(path);
+        qdevs.add(pp.getDevice());
+        qmeas.add(pp.getMeasurement());
+        qnewPath.add(path);
+      } catch (Exception e) {
+
+      }
+    }
+
+    res1 = System.nanoTime();
+    List<Long> res = new ArrayList<>(devs.size());
+    for (int i = 0; i < qdevs.size(); i++) {
+      res.add(reader.getOffsetByPath(qdevs.get(i), qmeas.get(i)));
+    }
+    res1 = System.nanoTime() - res1;
+
+    res2 = System.nanoTime();
+    res.clear();
+    for (int i = 0; i < qnewPath.size(); i++) {
+      res.add(mart.getValueByChannel(qnewPath.get(i)));
+    }
+    res2 = System.nanoTime() - res2;
+
+    reader.close();
+    mart.close();
+
+    System.out.println(DATA_SETS);
+    System.out.println(qdevs.size());
+    // System.out.println(qnewPath.size());
+    System.out.println(res1);
+    System.out.println(res2);
+  }
+
+  public static void main2(String[] args) throws Exception {
     long res1 = 0L, res2 = 0L;
 
     List<String> p = PathTextLoader.getAdjacentPaths(0, 5000, false);
@@ -89,15 +141,17 @@ public class CompareRead {
     Map<String, Set<MeasurementSchema>> devAndSensirs = new HashMap<>();
 
     // parse paths
-    PartialPath pp;
     for (String path : paths) {
-      pp = new PartialPath(path);
-      if (!devAndSensirs.containsKey(pp.getDevice())) {
-        devAndSensirs.put(pp.getDevice(), new HashSet<>());
+      // pp = new PartialPath(path);
+      if (!devAndSensirs.containsKey(path)) {
+        devAndSensirs.put(path, new HashSet<>());
       }
-      devAndSensirs
-          .get(pp.getDevice())
-          .add(new MeasurementSchema(pp.getMeasurement(), TSDataType.INT64, TSEncoding.RLE));
+
+      for (String sensor : DATA_SETS.sensors) {
+        devAndSensirs
+            .get(path)
+            .add(new MeasurementSchema(sensor, TSDataType.INT64, TSEncoding.RLE));
+      }
     }
 
     File f1 = new File(FILE_PATH);

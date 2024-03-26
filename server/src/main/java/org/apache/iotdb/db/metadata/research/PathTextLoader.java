@@ -34,9 +34,10 @@ import java.util.stream.Stream;
 
 public class PathTextLoader {
   static String resultDir = "mtree_data";
+  public static String fileName = "text_series.txt";
 
   public static void main2(String[] args) {
-    List<String> res = readFileLines(resultDir + File.separator + "text_series.txt");
+    List<String> res = readFileLines(resultDir + File.separator + fileName);
     res = res.stream().filter(PathTextLoader::containsNoChinese).collect(Collectors.toList());
     System.out.println(res);
   }
@@ -46,7 +47,7 @@ public class PathTextLoader {
   }
 
   public static List<String> getAllPaths() {
-    List<String> res = readFileLines(resultDir + File.separator + "text_series.txt");
+    List<String> res = readFileLines(resultDir + File.separator + fileName);
     res = res.stream().filter(PathTextLoader::containsNoChinese).collect(Collectors.toList());
     return res;
   }
@@ -80,7 +81,7 @@ public class PathTextLoader {
   }
 
   public static List<String> getAdjacentPaths(int s, int size, boolean withChinese) {
-    List<String> res = readFileLines(resultDir + File.separator + "text_series.txt");
+    List<String> res = readFileLines(resultDir + File.separator + fileName);
     if (!withChinese) {
       res = res.stream().filter(PathTextLoader::containsNoChinese).collect(Collectors.toList());
     }
@@ -106,7 +107,7 @@ public class PathTextLoader {
   }
 
   public static List<String> getRandomPaths(int size, boolean withChinese) {
-    List<String> res = readFileLines(resultDir + File.separator + "text_series.txt");
+    List<String> res = readFileLines(resultDir + File.separator + fileName);
     if (!withChinese) {
       res = res.stream().filter(PathTextLoader::containsNoChinese).collect(Collectors.toList());
     }

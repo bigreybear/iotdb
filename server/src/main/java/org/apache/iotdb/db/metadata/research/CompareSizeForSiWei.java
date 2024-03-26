@@ -9,7 +9,6 @@ import org.apache.iotdb.tsfile.file.metadata.statistics.Statistics;
 import org.apache.iotdb.tsfile.read.TsFileSequenceReader;
 import org.apache.iotdb.tsfile.write.schema.MeasurementSchema;
 import org.apache.iotdb.tsfile.write.writer.TsFileIOWriter;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,50 +29,57 @@ import java.util.stream.Collectors;
 
 import static org.apache.iotdb.db.metadata.research.PathHandler.*;
 
-public class CompareSize {
+public class CompareSizeForSiWei {
   public static final int DATASET_SIZE = 400000;
 
   private static final String FILE_PATH = "mtree_test".concat("_TsFileIOWriterTest.tsfile");
-  private static final int[] SIZE_TEST_SCALE = {2000, 10000, 50000, 250000};
+  private static final int[] SIZE_TEST_SCALE = {40, 80, 120, 200};
   private static int LARGEST_SCALE = SIZE_TEST_SCALE[SIZE_TEST_SCALE.length - 1];
   private static final int TEST_RUN = 1; // for guarantee stability
 
   private static final Map<String, List<int[]>> dimsToResults = new HashMap<>();
 
-  private static final Logger logger = LoggerFactory.getLogger(CompareSize.class);
+  private static final Logger logger = LoggerFactory.getLogger(CompareSizeForSiWei.class);
+
+  private static String[] templateSensors = new String[25];
 
   public static void main2(String[] args) throws Exception {
     List<String> p;
 
+    PathTextLoader.fileName = "siwei_devs.txt";
     p = PathTextLoader.getAdjacentPaths(0, LARGEST_SCALE, true);
-    testTsFileComponentWithBaowuPaths(p);
+    testTsFileComponentWithSiWeiPaths(p);
   }
 
   public static void main(String[] args) throws IOException, IllegalPathException {
+    PathTextLoader.fileName = "siwei_devs.txt";
+    for (int i = 0; i < 25; i++) {
+      templateSensors[i] = String.format("templateSensor_%02d", i);
+    }
 
     List<String> p;
     for (int i = 0; i < TEST_RUN; i++) {
       System.out.println("Test Run:" + i);
 
-    // p = PathTextLoader.getAdjacentPaths(LARGEST_SCALE, true);
-    // standardCompareSize(p, "Adjacent With Chinese");
+    p = PathTextLoader.getAdjacentPaths(LARGEST_SCALE, true);
+    standardCompareSize(p, "Simple Comparison");
     // p = adjustWithBaoWuModeling(p);
     // standardCompareSize(p, "Adjacent With Chinese, Adjusted");
-
+    //
     // p = PathTextLoader.getAdjacentPaths(LARGEST_SCALE, false);
     // standardCompareSize(p, "Adjacent Without Chinese");
     // p = adjustWithBaoWuModeling(p);
     // standardCompareSize(p, "Adjacent Without Chinese, Adjusted");
-
+    //
     //  p = PathTextLoader.getRandomPaths(LARGEST_SCALE, true);
     //  standardCompareSize(p, "Random With Chinese");
     //  p = adjustWithBaoWuModeling(p);
     //  standardCompareSize(p, "Random With Chinese, Adjusted");
-
-     p = PathTextLoader.getRandomPaths(LARGEST_SCALE, false);
-     standardCompareSize(p, "Random Without Chinese");
-     // p = adjustWithBaoWuModeling(p);
-     // standardCompareSize(p, "Random Without Chinese, Adjusted");
+    //
+    //  p = PathTextLoader.getRandomPaths(LARGEST_SCALE, false);
+    //  standardCompareSize(p, "Random Without Chinese");
+    //  p = adjustWithBaoWuModeling(p);
+    //  standardCompareSize(p, "Random Without Chinese, Adjusted");
     }
     normalizeAndPrintResults();
 
@@ -132,7 +138,13 @@ public class CompareSize {
       return;
     }
 
-    System.out.println("========================================" + dims + "========================================");
+    List<String> completePath = new ArrayList<>(naivePaths.size() * 25);
+    for (String dev : naivePaths) {
+      for (String s : templateSensors) {
+        completePath.add(dev + "." + s);
+      }
+    }
+    naivePaths = completePath;
 
     // ori for length of aligned paths
     int[] ori, art, tsf;
@@ -151,7 +163,7 @@ public class CompareSize {
 
     List<String> paths;
     for (int i = 0; i < SIZE_TEST_SCALE.length; i++) {
-      paths = naivePaths.subList(0, SIZE_TEST_SCALE[i]);
+      paths = naivePaths.subList(0, SIZE_TEST_SCALE[i] * 25);
       paths = filterPathSyntax(paths);
       paths = checkPrefix(paths);
       tsf[i] += testTsFile(paths);
@@ -161,13 +173,11 @@ public class CompareSize {
     }
   }
 
-  public static void testTsFileComponentWithBaowuPaths(List<String> naivePaths) throws Exception{
+  public static void testTsFileComponentWithSiWeiPaths(List<String> naivePaths) throws Exception{
     List<String> paths;
     for (int i = 0; i < SIZE_TEST_SCALE.length; i++) {
       paths = naivePaths.subList(0, SIZE_TEST_SCALE[i]);
       paths = filterPathSyntax(paths);
-      testTsFile(paths);
-      paths = adjustWithBaoWuModeling(paths);
       testTsFile(paths);
       System.out.println("");
     }
@@ -318,7 +328,6 @@ public class CompareSize {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     tree.collectStatistics();
     System.out.println(String.format("Total Valid Nodes: %d", Arrays.stream(tree.statistic.nodeCount).sum()));
-    System.out.println("node type count:" + printArrayAsOneLine(tree.statistic.nodeCount));
     return tree.serialize(baos);
 
     // ArtTree.calculateDepth(tree);
@@ -336,24 +345,19 @@ public class CompareSize {
   public static int testTsFile(List<String> paths) throws IOException, IllegalPathException {
     Map<String, Set<MeasurementSchema>> devAndSensirs = new HashMap<>();
 
-    // parse paths
-    PartialPath pp;
-    for (String path : paths) {
-      pp = new PartialPath(path);
-      if (!devAndSensirs.containsKey(pp.getDevice())) {
-        devAndSensirs.put(pp.getDevice(), new HashSet<>());
-      }
-      devAndSensirs
-          .get(pp.getDevice())
-          .add(new MeasurementSchema(pp.getMeasurement(), TSDataType.INT64, TSEncoding.RLE));
+    Set<MeasurementSchema> schemaSet = new HashSet<>(25);
+    for (int i = 0; i < 25; i++) {
+      schemaSet.add(new MeasurementSchema(templateSensors[i], TSDataType.INT64, TSEncoding.RLE));
     }
 
+    // for SiWei, all paths are just devices
     File f1 = new File(FILE_PATH);
     f1.deleteOnExit();
     TsFileIOWriter writer = new TsFileIOWriter(new File(FILE_PATH));
 
-    for (Map.Entry<String, Set<MeasurementSchema>> entry : devAndSensirs.entrySet()) {
-      writeChunkGroup2(writer, entry.getKey(), entry.getValue());
+    for (String p : paths) {
+      PartialPath pp = new PartialPath(p);
+      writeChunkGroup2(writer, pp.getDevice(), schemaSet);
     }
 
     writer.setMinPlanIndex(100);

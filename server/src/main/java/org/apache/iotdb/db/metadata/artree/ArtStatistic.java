@@ -1,5 +1,6 @@
 package org.apache.iotdb.db.metadata.artree;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +16,10 @@ public class ArtStatistic {
 
   // how many leaves a partial key effects
   public Map<String, Integer> partialKeyEffects = new HashMap<>();
+
+  // plenitude of every node type to judge whether profitable for ART
+  public List<Float>[] plenitude = new List[5];
+  public List<Map<String, Float>> boxPlotData = new ArrayList<>();
 
   public ArtStatistic() {
   }

@@ -299,6 +299,8 @@ public class TsFileIOWriter implements AutoCloseable {
     // write magic string
     out.write(MAGIC_STRING_BYTES);
 
+    long totalLen = out.getPosition();
+
     // close file
     out.close();
     if (resourceLogger.isDebugEnabled() && file != null) {
@@ -311,13 +313,23 @@ public class TsFileIOWriter implements AutoCloseable {
       }
     }
     canWrite = false;
+
+    // report length detail
+    System.out.println(String.format("TsFile length: (total, p1, TSM, MIN)%d, %d, %d, %d",
+        totalLen, p1Length, tsmLength, metadataCost));
   }
+
+  // length of part-1 which mostly about data (before mark 2)
+  public long p1Length = 0L;
+  // TimeSeriesMeta
+  public long tsmLength = 0L;
 
   private void readChunkMetadataAndConstructIndexTree() throws IOException {
     if (tempOutput != null) {
       tempOutput.close();
     }
     long metaOffset = out.getPosition();
+    this.p1Length = out.getPosition();
 
     // serialize the SEPARATOR of MetaData
     ReadWriteIOUtils.write(MetaMarker.SEPARATOR, out.wrapAsStream());
@@ -390,9 +402,11 @@ public class TsFileIOWriter implements AutoCloseable {
       seriesIdxForCurrDevice++;
       // serialize the timeseries metadata to file
       // TS Metadata, including datatype, sensor id, chunk metadata list size, statistics
-      // chunk metadata, which points to actual data, is already byte buffer here, so don't worry
-      // about how
+      //  chunk metadata, which points to actual data, is already byte buffer here, so don't worry
+      //  about how
+      long tmpTsm = out.getPosition();
       timeseriesMetadata.serializeTo(out.wrapAsStream());
+      tsmLength += out.getPosition() - tmpTsm;
     }
 
     long b = out.getPosition();
@@ -411,6 +425,10 @@ public class TsFileIOWriter implements AutoCloseable {
 
     long c = out.getPosition();
 
+    out.flush();
+    sizeForSI = out.getPosition();
+    timeForSI = System.nanoTime();
+
     // mark metadata tree
     // serialize measurement entry(:measurement -> TSMeta_offset) into buffer <br>
     // and construct IndexNode for device (:device -> first_
@@ -422,6 +440,11 @@ public class TsFileIOWriter implements AutoCloseable {
     tsFileMetadata.setMetaOffset(metaOffset);
 
     int size = tsFileMetadata.serializeTo(out.wrapAsStream());
+
+    out.flush();
+    timeForSI = System.nanoTime() - timeForSI;
+    timeForSI = timeForSI / 1000000;
+    sizeForSI = out.getPosition() - sizeForSI;
 
     long c2 = out.getPosition();
 
@@ -436,6 +459,8 @@ public class TsFileIOWriter implements AutoCloseable {
     // mcp3));
     // System.out.println(String.format("c1-c:%d, c2-c1:%d", c1-c, c2-c1));
   }
+
+  public static long sizeForSI, timeForSI;
 
   private void checkInMemoryPathCount() {
     for (ChunkGroupMetadata chunkGroupMetadata : chunkGroupMetadataList) {
