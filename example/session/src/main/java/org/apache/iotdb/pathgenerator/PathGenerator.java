@@ -22,9 +22,9 @@ package org.apache.iotdb.pathgenerator;
 import org.apache.iotdb.tsfile.utils.Pair;
 import org.apache.iotdb.tsfile.utils.RamUsageEstimator;
 
-import com.ankurdave.part.ArtTree;
-import com.github.rohansuri.art.AdaptiveRadixTree;
-import com.github.rohansuri.art.BinaryComparables;
+// import com.ankurdave.part.ArtTree;
+// import com.github.rohansuri.art.AdaptiveRadixTree;
+// import com.github.rohansuri.art.BinaryComparables;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -183,17 +183,17 @@ public class PathGenerator {
     //     System.out.println(res.next());
     // }
 
-    ArtTree ankurTree = new ArtTree();
-    AdaptiveRadixTree<String, String> rohanTree =
-        new AdaptiveRadixTree<>(BinaryComparables.forString());
-
-    for (String str : pg1.paths) {
-      ankurTree.insert(str.getBytes(), str);
-      rohanTree.put(str, str);
-    }
-
-    System.out.println(RamUsageEstimator.sizeOf(ankurTree));
-    System.out.println(RamUsageEstimator.sizeOf(rohanTree));
+    // ArtTree ankurTree = new ArtTree();
+    // AdaptiveRadixTree<String, String> rohanTree =
+    //     new AdaptiveRadixTree<>(BinaryComparables.forString());
+    //
+    // for (String str : pg1.paths) {
+    //   ankurTree.insert(str.getBytes(), str);
+    //   rohanTree.put(str, str);
+    // }
+    //
+    // System.out.println(RamUsageEstimator.sizeOf(ankurTree));
+    // System.out.println(RamUsageEstimator.sizeOf(rohanTree));
 
     // Iterator<Tuple2<byte[], Object>> ite = at.iterator();
     // while (ite.hasNext()) {

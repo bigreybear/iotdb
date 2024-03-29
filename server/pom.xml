@@ -46,7 +46,7 @@
             <artifactId>arrow-vector</artifactId>
             <version>15.0.0</version>
         </dependency>
-        <dependency>
+        <!--         <dependency>
             <groupId>me.zhaoxin</groupId>
             <artifactId>part</artifactId>
             <version>0.2</version>
@@ -55,7 +55,7 @@
             <groupId>me.zhaoxin</groupId>
             <artifactId>rohan-art</artifactId>
             <version>0.1</version>
-        </dependency>
+        </dependency> -->
         <dependency>
             <groupId>org.apache.iotdb</groupId>
             <artifactId>service-rpc</artifactId>

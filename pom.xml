@@ -191,11 +191,11 @@
                 <artifactId>logback-classic</artifactId>
                 <version>${logback.version}</version>
             </dependency>
-            <dependency>
+            <!--             <dependency>
                 <groupId>me.zhaoxin</groupId>
                 <artifactId>part</artifactId>
                 <version>0.2</version>
-            </dependency>
+            </dependency> -->
             <dependency>
                 <groupId>com.fasterxml.jackson.core</groupId>
                 <artifactId>jackson-annotations</artifactId>

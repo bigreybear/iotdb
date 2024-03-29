@@ -102,11 +102,11 @@ import org.apache.iotdb.tsfile.write.schema.IMeasurementSchema;
 import org.apache.iotdb.tsfile.write.schema.MeasurementSchema;
 import org.apache.iotdb.tsfile.write.schema.TimeseriesSchema;
 
-import com.ankurdave.part.ArtTree;
+// import com.ankurdave.part.ArtTree;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.LoadingCache;
-import com.github.rohansuri.art.AdaptiveRadixTree;
-import com.github.rohansuri.art.BinaryComparables;
+// import com.github.rohansuri.art.AdaptiveRadixTree;
+// import com.github.rohansuri.art.BinaryComparables;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -215,9 +215,9 @@ public class MManager {
 
   private MTree mtree;
   // ankurTree
-  private ArtTree ankurTree;
+  // private ArtTree ankurTree;
   // rohanTree
-  private AdaptiveRadixTree<String, IMeasurementMNode> rohanTree;
+  // private AdaptiveRadixTree<String, IMeasurementMNode> rohanTree;
 
   // device -> DeviceMNode
   private LoadingCache<PartialPath, IMNode> mNodeCache;
@@ -329,8 +329,8 @@ public class MManager {
       mtree = new MTree();
       mtree.init();
 
-      ankurTree = new ArtTree();
-      rohanTree = new AdaptiveRadixTree<>(BinaryComparables.forString());
+      // ankurTree = new ArtTree();
+      // rohanTree = new AdaptiveRadixTree<>(BinaryComparables.forString());
 
       int lineNumber = initFromLog(logFile);
 
@@ -618,19 +618,19 @@ public class MManager {
                       path.getMeasurement(), type, plan.getEncoding(), plan.getCompressor()),
                   null);
 
-          if (treeFlag == TreeImpl.AnkurTree) {
-            if (ankurTree.search(path.getFullPath().getBytes()) != null) {
-              throw new PathAlreadyExistException(path.getFullPath());
-            }
-            ankurTree.insert(path.getFullPath().getBytes(), leafMNode);
-          } else if (treeFlag == TreeImpl.RohanTree) {
-            if (rohanTree.get(path.getFullPath()) != null) {
-              throw new PathAlreadyExistException(path.getFullPath());
-            }
-            rohanTree.put(path.getFullPath(), leafMNode);
-          } else {
-            throw new MetadataException("Tree type wrong.");
-          }
+          // if (treeFlag == TreeImpl.AnkurTree) {
+          //   if (ankurTree.search(path.getFullPath().getBytes()) != null) {
+          //     throw new PathAlreadyExistException(path.getFullPath());
+          //   }
+          //   ankurTree.insert(path.getFullPath().getBytes(), leafMNode);
+          // } else if (treeFlag == TreeImpl.RohanTree) {
+          //   if (rohanTree.get(path.getFullPath()) != null) {
+          //     throw new PathAlreadyExistException(path.getFullPath());
+          //   }
+          //   rohanTree.put(path.getFullPath(), leafMNode);
+          // } else {
+          //   throw new MetadataException("Tree type wrong.");
+          // }
         }
 
         // the cached mNode may be replaced by new entityMNode in mtree
@@ -778,9 +778,9 @@ public class MManager {
             for (int i = 0; i < seriesCount; i++) {
               fullPath = prefixPath.concatNode(measurements.get(i));
 
-              if (ankurTree.search(fullPath.getFullPath().getBytes()) != null) {
-                throw new PathAlreadyExistException(fullPath.getFullPath());
-              }
+              // if (ankurTree.search(fullPath.getFullPath().getBytes()) != null) {
+              //   throw new PathAlreadyExistException(fullPath.getFullPath());
+              // }
 
               leafMNode =
                   MeasurementMNode.getMeasurementMNode(
@@ -793,7 +793,7 @@ public class MManager {
                           plan.getCompressors().get(i)),
                       null);
 
-              ankurTree.insert(fullPath.getFullPath().getBytes(), leafMNode);
+              // ankurTree.insert(fullPath.getFullPath().getBytes(), leafMNode);
             }
           }
 
@@ -801,9 +801,9 @@ public class MManager {
             for (int i = 0; i < seriesCount; i++) {
               fullPath = prefixPath.concatNode(measurements.get(i));
 
-              if (rohanTree.get(fullPath.getFullPath()) != null) {
-                throw new PathAlreadyExistException(fullPath.getFullPath());
-              }
+              // if (rohanTree.get(fullPath.getFullPath()) != null) {
+              //   throw new PathAlreadyExistException(fullPath.getFullPath());
+              // }
 
               leafMNode =
                   MeasurementMNode.getMeasurementMNode(
@@ -816,7 +816,7 @@ public class MManager {
                           plan.getCompressors().get(i)),
                       null);
 
-              rohanTree.put(fullPath.getFullPath(), leafMNode);
+              // rohanTree.put(fullPath.getFullPath(), leafMNode);
             }
           }
         }
@@ -1185,14 +1185,14 @@ public class MManager {
    */
   public long getDevicesNum(PartialPath pathPattern, boolean isPrefixMatch)
       throws MetadataException {
-    switch (treeFlag) {
-      case MTree:
-        return RamUsageEstimator.sizeOf(mtree);
-      case AnkurTree:
-        return RamUsageEstimator.sizeOf(ankurTree);
-      case RohanTree:
-        return RamUsageEstimator.sizeOf(rohanTree);
-    }
+    // switch (treeFlag) {
+    //   case MTree:
+    //     return RamUsageEstimator.sizeOf(mtree);
+    //   case AnkurTree:
+    //     return RamUsageEstimator.sizeOf(ankurTree);
+    //   case RohanTree:
+    //     return RamUsageEstimator.sizeOf(rohanTree);
+    // }
     return mtree.getDevicesNum(pathPattern, isPrefixMatch);
   }
 
@@ -1610,24 +1610,25 @@ public class MManager {
   }
 
   private List<Pair<PartialPath, String[]>> getAllAnsInART(ShowTimeSeriesPlan plan) {
-    IMeasurementMNode node =
-        treeFlag == TreeImpl.RohanTree
-            ? rohanTree.get(plan.getPath().getFullPath())
-            : (IMeasurementMNode) ankurTree.search(plan.getPath().getFullPath().getBytes());
-    IMeasurementSchema schema = node.getSchema();
-    Pair<String, String> deadbandInfo = MetaUtils.parseDeadbandInfo(schema.getProps());
-    String[] tsRow = new String[9];
-    tsRow[0] = node.getAlias();
-    tsRow[1] = "FROM ART";
-    tsRow[2] = schema.getType().toString();
-    tsRow[3] = schema.getEncodingType().toString();
-    tsRow[4] = schema.getCompressor().toString();
-    tsRow[5] = String.valueOf(node.getOffset());
-    tsRow[6] = null;
-    tsRow[7] = deadbandInfo.left;
-    tsRow[8] = deadbandInfo.right;
-
-    return new ArrayList<>(Collections.singletonList(new Pair<>(plan.getPath(), tsRow)));
+    return null;
+    // IMeasurementMNode node =
+    //     treeFlag == TreeImpl.RohanTree
+    //         ? rohanTree.get(plan.getPath().getFullPath())
+    //         : (IMeasurementMNode) ankurTree.search(plan.getPath().getFullPath().getBytes());
+    // IMeasurementSchema schema = node.getSchema();
+    // Pair<String, String> deadbandInfo = MetaUtils.parseDeadbandInfo(schema.getProps());
+    // String[] tsRow = new String[9];
+    // tsRow[0] = node.getAlias();
+    // tsRow[1] = "FROM ART";
+    // tsRow[2] = schema.getType().toString();
+    // tsRow[3] = schema.getEncodingType().toString();
+    // tsRow[4] = schema.getCompressor().toString();
+    // tsRow[5] = String.valueOf(node.getOffset());
+    // tsRow[6] = null;
+    // tsRow[7] = deadbandInfo.left;
+    // tsRow[8] = deadbandInfo.right;
+    //
+    // return new ArrayList<>(Collections.singletonList(new Pair<>(plan.getPath(), tsRow)));
   }
 
   /**
@@ -1641,7 +1642,7 @@ public class MManager {
     if (plan.isOrderByHeat()) {
       ans = mtree.getAllMeasurementSchemaByHeatOrder(plan, context);
     } else {
-      ans = treeFlag == TreeImpl.MTree ? mtree.getAllMeasurementSchema(plan) : getAllAnsInART(plan);
+      ans = treeFlag == TreeImpl.MTree ? mtree.getAllMeasurementSchema(plan) : null;
     }
     List<ShowTimeSeriesResult> res = new LinkedList<>();
     for (Pair<PartialPath, String[]> ansString : ans) {
